@@ -36,6 +36,7 @@ public class ClientThread implements Runnable {
 		
 	}
 
+	/* TODO: validate input */
 	public boolean parse(String[] cmd){
 		boolean error = false;
 		switch(cmd[0]){
@@ -59,7 +60,15 @@ public class ClientThread implements Runnable {
 				listAuctions();	
 				break;
 			case "bid":
-				input.println("Not yet implemented");
+				error = (cmd.length != 3);
+				if(!error){
+					try{
+						int auctionId = Integer.parseInt(cmd[1]);
+						double amount = Double.parseDouble(cmd[2]);
+						bid(auctionId, amount);
+					}catch(Exception e){
+					}
+				}
 				break;
 			case "end":
 				input.println("Not yet implemented");
@@ -123,8 +132,7 @@ public class ClientThread implements Runnable {
 				if(c.isAuctioneerOf(auctionId)){
 					str.append("* ");
 				}
-				else if (c.isBidderIn(auctionId) && 
-					 a.getHighestBidder().equals(loggedUser)){
+				else if (a.getHighestBidder().equals(loggedUser)){
 					str.append("+ ");
 					
 				}
@@ -142,6 +150,20 @@ public class ClientThread implements Runnable {
 		}finally{
 			auctions.unlock();
 		}
+	}
+
+	public void bid(int auctionId, double amount){
+		auctions.lock();
+		
+		/*TODO: case auctionId doesnt exist */
+		Auction a = auctions.get(auctionId);
+		
+		a.lock();
+		auctions.unlock();
+		
+		a.bid(loggedUser, amount);
+
+		a.unlock();
 	}
 
 	public void register(String username, String password){

@@ -7,18 +7,21 @@ public class Auction{
 	private static int nextId = 0;
 	private final int auctionId = ++nextId;
 	private ReentrantLock auctionLock;
-	private String auctioner;
+	private String auctioneer;
 	private String description;
 	private List<String> licitationHistory;
 	private String highestBidder;
 	private double highestBid;
+	private boolean terminated;
 
-	public Auction(String auctioner, String description){
-		this.auctioner = auctioner;
+	public Auction(String auctioneer, String description){
+		this.auctioneer = auctioneer;
 		this.description = description;
+		highestBidder = "";
 		highestBid = 0.0;
 		licitationHistory = new ArrayList<>();
 		auctionLock = new ReentrantLock();
+		terminated = false;
 	}
 
 
@@ -75,6 +78,24 @@ public class Auction{
 		lock();
 		try{
 			return highestBid;
+		}finally{
+			unlock();
+		}
+	}
+
+	public boolean isTerminated(){
+		lock();
+		try{
+			return terminated;
+		}finally{
+			unlock();
+		}
+	}
+
+	public void terminate(){
+		lock();
+		try{
+			terminated = true;
 		}finally{
 			unlock();
 		}
