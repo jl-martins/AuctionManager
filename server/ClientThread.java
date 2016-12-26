@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Set;
 
 public class ClientThread implements Runnable {
 	private Socket s;
@@ -11,6 +12,7 @@ public class ClientThread implements Runnable {
 	private BufferedReader output;
 	private PrintWriter input;
 	private String loggedUser;
+	private NotificationsThread nf;
 
 	public ClientThread(Socket s, UsersMap users, AuctionsMap auctions){
 		this.s = s;
@@ -23,12 +25,12 @@ public class ClientThread implements Runnable {
 		try{
 			output = new BufferedReader(new InputStreamReader(s.getInputStream()));
 			input = new PrintWriter(s.getOutputStream(),true);
-			
+
 			String m;
 			while(((m = output.readLine()) != null)){
 				String[] cmd = m.split(" ");
 				loggedUser = cmd[0].equals("logout") ? "" : loggedUser;
-				parse(m.split(" "));
+				parse(cmd);
 			}
 			s.close();
 		}catch(IOException e){
@@ -42,8 +44,11 @@ public class ClientThread implements Runnable {
 		switch(cmd[0]){
 			case "login": 
 				error = (cmd.length != 3); 
-				if(!error)
-					login(cmd[1], cmd[2]);
+				if(!error && login(cmd[1], cmd[2])){
+					users.lock();
+					(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), input)).start();
+					users.unlock();
+				}
 				break;
 			case "reg": 
 				error = (cmd.length != 3);
@@ -66,14 +71,20 @@ public class ClientThread implements Runnable {
 						int auctionId = Integer.parseInt(cmd[1]);
 						double amount = Double.parseDouble(cmd[2]);
 						bid(auctionId, amount);
-					}catch(Exception e){
+					}catch(NumberFormatException e){
 					}
 				}
 				break;
-			case "end":
-				input.println("Not yet implemented");
+			case "close":
+				error = (cmd.length != 2);
+				if(!error)
+					try{
+						closeAuction(Integer.parseInt(cmd[1]));
+					}catch(NumberFormatException e){
+					}
 				break;
 			case "logout":
+				nf.cancel();
 				break;
 			default:
 				System.out.println(cmd[0]);
@@ -125,25 +136,31 @@ public class ClientThread implements Runnable {
 		auctions.lock();
 		try{
 			for(Auction a: auctions.values()){
+				if(a.isTerminated()) continue;
 				++i;
 				a.lock();
 				int auctionId = a.getAuctionId();
+
+				str.append("[").append(auctionId).append("] ");
+				str.append(a.getDescription());
+			
+				str.append(" Highest Bid: ")	
+				if(a.getHighestBid() == 0) str.append("n/a");
+				else str.append(a.getHighestBid());
 
 				if(c.isAuctioneerOf(auctionId)){
 					str.append("* ");
 				}
 				else if (a.getHighestBidder().equals(loggedUser)){
-					str.append("+ ");
-					
+					str.append("+ ");	
 				}
-				
-				str.append("[").append(auctionId).append("] ");
-				str.append(a.getDescription());
+
 				str.append("\n");
 				a.unlock();
-				if(i == lines || (i == auctions.size())){
-					input.println(str.toString());
-					str = new StringBuilder();
+				if(i == lines || (i == auctions.size()-auctions.getClosedAuctions())){
+					String s = str.toString();
+					input.println(s);
+					str.delete(0, s.length()-1);
 					i = 0;
 				}
 			}
@@ -161,34 +178,72 @@ public class ClientThread implements Runnable {
 		a.lock();
 		auctions.unlock();
 		
-		a.bid(loggedUser, amount);
+		if(!a.isTerminated())
+			a.bid(loggedUser, amount);
 
+		a.unlock();
+	}
+
+	public void closeAuction(int auctionId){
+		String notification = null;
+		auctions.lock();
+		Auction a = auctions.get(auctionId);
+
+		a.lock();
+		auctions.unlock();
+		Set<String> bidders;
+		if(!a.isTerminated()){
+			StringBuilder str = new StringBuilder();
+		
+			str.append("Auction #").append(auctionId);
+			str.append(" closed with value ").append(a.getHighestBid());
+			str.append(" from user ").append(a.getHighestBidder());
+		
+			notification = str.toString();
+			bidders = a.getBidders();
+			for(String bidder: bidders){
+				users.get(bidder).add(notification);
+			}
+			a.terminate();
+			auctions.incClosedAuctions();
+		}
+	
 		a.unlock();
 	}
 
 	public void register(String username, String password){
 		users.lock();
 		try{
-			if(!users.containsUser(username))
+			if(!users.containsUser(username)){
 				users.addUser(new Client(username, password));
+				input.println("Registration Successful!");
+			}
+			else{
+				input.println("Username already in use!");
+			}
 		}finally{
 			users.unlock();
 		}
-		input.println("Registration Successful!");
 	}
 
-	public void login(String username, String password){
+	public boolean login(String username, String password){
 		Client c = null;
 		users.lock();
 		try{
 			if(users.containsUser(username))
 				c = users.get(username);
-		}finally{users.unlock();}
+		}finally{
+			users.unlock();
+		}
+		
+		boolean isValid = c.checkPassword(password);
 
-
-		if(c.checkPassword(password)) 
+		if(isValid) 
 			this.loggedUser = username;
+
+		return isValid;
 	}
+
 	
 	public void logout(){
 	}

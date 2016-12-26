@@ -1,4 +1,5 @@
-
+import java.util.Set;
+import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
@@ -12,6 +13,7 @@ public class Auction{
 	private List<String> licitationHistory;
 	private String highestBidder;
 	private double highestBid;
+	private Set<String> bidders;
 	private boolean terminated;
 
 	public Auction(String auctioneer, String description){
@@ -21,6 +23,7 @@ public class Auction{
 		highestBid = 0.0;
 		licitationHistory = new ArrayList<>();
 		auctionLock = new ReentrantLock();
+		bidders = new HashSet<>();
 		terminated = false;
 	}
 
@@ -53,6 +56,8 @@ public class Auction{
 
 	public void bid(String bidder, double bid){
 		lock();
+		
+		bidders.add(bidder);
 		try{
 			if(bid > highestBid){
 				highestBid = bid;
@@ -96,6 +101,15 @@ public class Auction{
 		lock();
 		try{
 			terminated = true;
+		}finally{
+			unlock();
+		}
+	}
+
+	public Set<String> getBidders(){
+		lock();
+		try{
+			return bidders;
 		}finally{
 			unlock();
 		}

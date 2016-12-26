@@ -5,11 +5,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class AuctionsMap{
 	private Map<Integer, Auction> auctions;
+	private int closedAuctions;
 	private ReentrantLock auctionsLock;
 	
 	public AuctionsMap(){
 		auctions = new HashMap<>();
 		auctionsLock = new ReentrantLock();
+		closedAuctions = 0;
 	}
 
 	public void lock(){
@@ -58,6 +60,24 @@ public class AuctionsMap{
 	
 	public Collection<Auction> values() {
 		return auctions.values();
+	}
+
+	public int getClosedAuctions(){
+		lock();
+		try{
+			return closedAuctions;
+		}finally{
+			unlock();
+		}
+	}
+
+	public void incClosedAuctions(){
+		lock();
+		try{
+			closedAuctions += 1;
+		}finally{
+			unlock();
+		}
 	}
 
 }

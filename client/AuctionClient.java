@@ -74,7 +74,7 @@ public class AuctionClient extends Thread{
 			case "start": 
 			case "list":
 			case "bid":
-			case "end":
+			case "close":
 			case "logout": socketOut.println(cmd); break;
 			default:
 		}
@@ -101,7 +101,7 @@ public class AuctionClient extends Thread{
 		str.append("Start Auction\n");
 		str.append("List running auctions\n");
 		str.append("Bid item\n");
-		str.append("End Auction\n");
+		str.append("Close Auction\n");
 		str.append("Logout and exit\n");
 		
 		return str.toString();
@@ -110,7 +110,7 @@ public class AuctionClient extends Thread{
 	public static boolean existsCmd(String cmd){
 		/* Commands need to be stored somewhere */
 		return (cmd.equals("start") || cmd.equals("list") || cmd.equals("bid") 
-		|| cmd.equals("end") || cmd.equals("logout"));
+		|| cmd.equals("close") || cmd.equals("logout"));
 	}
 	
 	public static String[] askForUsernamePassword(BufferedReader stdin) throws IOException{		
