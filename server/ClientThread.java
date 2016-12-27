@@ -200,7 +200,7 @@ public class ClientThread implements Runnable {
 			str.append(" from user ").append(a.getHighestBidder());
 		
 			notification = str.toString();
-			bidders = a.getBidders();
+			bidders = a.getBidders().add(loggedUser);
 			for(String bidder: bidders){
 				users.get(bidder).add(notification);
 			}
