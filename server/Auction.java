@@ -54,11 +54,15 @@ public class Auction{
 		}
 	}
 
-	public void bid(String bidder, double bid){
+	public void bid(String bidder, double bid) throws InvalidBidException{
 		lock();
 		
 		bidders.add(bidder);
 		try{
+
+			if(bid <= highestBid)
+				throw new InvalidBidException("Your bid should be higher than the current highest bid!");
+
 			if(bid > highestBid){
 				highestBid = bid;
 				highestBidder = bidder;

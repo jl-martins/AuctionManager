@@ -72,7 +72,7 @@ public class ClientThread implements Runnable {
 						double amount = Double.parseDouble(cmd[2]);
 						bid(auctionId, amount);
 					}catch(NumberFormatException e){
-					}
+					}			
 				}
 				break;
 			case "close":
@@ -180,10 +180,22 @@ public class ClientThread implements Runnable {
 		
 		a.lock();
 		auctions.unlock();
+	
+		try{	StringBuilder str = new StringBuilder();
+			if(!a.isTerminated()){
+				String s = a.getHighestBidder();
+				a.bid(loggedUser, amount);
+				if(!s.equals("")){
+					str.append("Your bid in the auction with id: ").append(auctionId);
+					str.append(" was passed by ").append(loggedUser);
+					str.append("'s bid of ").append(amount);
+					users.get(s).add(str.toString());
+				}
+			}
+		}catch(InvalidBidException e){
+			input.println(e.getMessage());
+		}
 		
-		if(!a.isTerminated())
-			a.bid(loggedUser, amount);
-
 		a.unlock();
 	}
 
