@@ -116,7 +116,7 @@ public class ClientThread implements Runnable {
 		auctions.unlock();
 	
 		users.lock();
-		users.get(loggedUser).addAuction(auctionId, false);
+		users.get(loggedUser).addAuction(auctionId, false); /* we're adding this auction not as a bidder but as a auctioneer, hence asBidder=false */
 		users.unlock();
 
 
@@ -134,6 +134,9 @@ public class ClientThread implements Runnable {
 		users.unlock();
 	
 		auctions.lock();
+		if(auctions.size() == auctions.getClosedAuctions()){
+			input.println("There are no open auctions.");
+		}
 		try{
 			for(Auction a: auctions.values()){
 				if(a.isTerminated()) continue;
@@ -144,7 +147,7 @@ public class ClientThread implements Runnable {
 				str.append("[").append(auctionId).append("] ");
 				str.append(a.getDescription());
 			
-				str.append(" Highest Bid: ")	
+				str.append(" Highest Bid: ");
 				if(a.getHighestBid() == 0) str.append("n/a");
 				else str.append(a.getHighestBid());
 
@@ -200,7 +203,8 @@ public class ClientThread implements Runnable {
 			str.append(" from user ").append(a.getHighestBidder());
 		
 			notification = str.toString();
-			bidders = a.getBidders().add(loggedUser);
+			bidders = a.getBidders();
+			bidders.add(loggedUser);
 			for(String bidder: bidders){
 				users.get(bidder).add(notification);
 			}
