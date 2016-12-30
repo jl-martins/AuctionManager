@@ -7,7 +7,9 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class AuctionClient extends Thread{
-	
+
+	private static ReentrantLock validLoginLock = new ReentrantLock();	
+	private static boolean validLogin;
 	private Socket s;
 	private BufferedReader socketOut;
 	
@@ -22,7 +24,14 @@ public class AuctionClient extends Thread{
 		String serverMessage;
 		try{
 			while((serverMessage = socketOut.readLine()) != null){
-				System.out.println(serverMessage);
+				if(serverMessage.equals("xl")){
+					validLoginLock.lock();
+					validLogin = false;
+					validLoginLock.unlock();
+					System.out.println("Invalid Login");
+				}
+				else
+					System.out.println(serverMessage);
 			}
 			s.shutdownOutput();
 		}catch(IOException e){
@@ -43,12 +52,26 @@ public class AuctionClient extends Thread{
 		do{
 			int option;
 			do{
+				/*maybe move this to a method */
+				validLoginLock.lock();
+				validLogin = true;
+				validLoginLock.unlock();
+				
 				System.out.print(firstMenu());
-				option = Integer.parseInt(stdin.readLine());
-				if(option == 2) login(stdin, socketIn);
-				else if(option == 1) register(stdin, socketIn);
+				try{
+					option = Integer.parseInt(stdin.readLine());
+					if(option == 2) login(stdin, socketIn);
+					else if(option == 1) register(stdin, socketIn);
+				}catch(NumberFormatException e){
+					validLoginLock.lock();
+					validLogin = false;
+					validLoginLock.unlock();
+					option = 1;
+					System.out.println("Please choose one of the above options");
+				}
+				
 				Thread.sleep(300);
-			}while(option==1);
+			}while(option==1 || !validLogin);
 			
 			/* At this point client is logged in */	
 
@@ -85,9 +108,9 @@ public class AuctionClient extends Thread{
 		StringBuilder str = new StringBuilder();
 		str.append("Start Auction: start <description>\n");
 		str.append("List Auctions: list\n");
-		str.append("Bid: 	   bid <auctionId> <amount>\n");
+		str.append("Bid: bid <auctionId> <amount>\n");
 		str.append("Close Auction: close <auctionId>\n");
-		str.append("Logout:	   logout");
+		str.append("Logout: logout");
 		System.out.println(str.toString());
 	}
 	

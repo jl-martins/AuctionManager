@@ -1,9 +1,16 @@
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.FileInputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class AuctionsMap{
+import java.io.Serializable;
+
+public class AuctionsMap implements Serializable{
 	private Map<Integer, Auction> auctions;
 	private int closedAuctions;
 	private ReentrantLock auctionsLock;
@@ -59,7 +66,21 @@ public class AuctionsMap{
 	}
 	
 	public Collection<Auction> values() {
-		return auctions.values();
+		lock();
+		try{
+			return auctions.values();
+		}finally{
+			unlock();
+		}
+	}
+
+	public Collection<Integer> keys() {
+		lock();
+		try{
+			return auctions.keySet();
+		}finally{
+			unlock();
+		}
 	}
 
 	public int getClosedAuctions(){
@@ -78,6 +99,20 @@ public class AuctionsMap{
 		}finally{
 			unlock();
 		}
+	}
+
+	public static AuctionsMap readObj(String file) throws IOException, ClassNotFoundException {
+		ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file));
+		AuctionsMap auctions = (AuctionsMap) ois.readObject();
+		ois.close();
+		return auctions; 
+	}
+
+	public void writeObj(String file) throws IOException{
+		ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file));
+		oos.writeObject(this);
+		oos.flush();
+		oos.close();
 	}
 
 }

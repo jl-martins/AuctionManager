@@ -1,9 +1,15 @@
-
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class UsersMap{
+import java.io.Serializable;
+
+public class UsersMap implements Serializable{
 	private Map<String, Client> users;
 	private ReentrantLock usersLock;
 
@@ -55,5 +61,19 @@ public class UsersMap{
 		}finally{
 			unlock();
 		}
+	}
+	
+	public static UsersMap readObj(String file) throws IOException, ClassNotFoundException {
+		ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file));
+		UsersMap users = (UsersMap) ois.readObject();
+		ois.close();
+		return users; 
+	}
+
+	public void writeObj(String file) throws IOException{
+		ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file));
+		oos.writeObject(this);
+		oos.flush();
+		oos.close();
 	}
 }

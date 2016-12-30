@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class Auction{
+import java.io.Serializable;
+
+public class Auction implements Serializable{
 	private static int nextId = 0;
 	private final int auctionId = ++nextId;
 	private ReentrantLock auctionLock;
@@ -34,6 +36,15 @@ public class Auction{
 
 	public void unlock(){
 		auctionLock.unlock();
+	}
+	
+	public String getAuctioneer(){
+		lock();
+		try{
+			return auctioneer;
+		}finally{
+			unlock();
+		}
 	}
 	
 	public int getAuctionId(){
@@ -117,6 +128,10 @@ public class Auction{
 		}finally{
 			unlock();
 		}
+	}
+
+	public static void setNextId(int id){
+		nextId = id;
 	}
 
 	public List<String> readHistory(){

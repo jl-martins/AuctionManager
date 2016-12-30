@@ -8,7 +8,9 @@ import java.util.Queue;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.Condition;
 
-public class Notifications{
+import java.io.Serializable;
+
+public class Notifications implements Serializable{
 	private Queue<String> buffer;
 	private ReentrantLock bufferLock;
 	private Condition available;

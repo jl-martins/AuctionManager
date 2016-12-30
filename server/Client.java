@@ -6,7 +6,9 @@ import java.util.LinkedList;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.Condition;
 
-public class Client{
+import java.io.Serializable;
+
+public class Client implements Serializable{
 	private String username;
 	private String password;
 	private Set<Integer> auctionsOwned;		/* Auctions in which he's the auctioneer */
@@ -54,7 +56,9 @@ public class Client{
 	}	
 	*/
 
-	public boolean checkPassword(String password){
+	public boolean checkPassword(String password) throws AuthorizationException{
+		if(!this.password.equals(password))
+			throw new AuthorizationException("xl");
 		return this.password.equals(password);
 	}
 
