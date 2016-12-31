@@ -5,11 +5,14 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.io.Console;
 
 public class AuctionClient extends Thread{
 
 	private static ReentrantLock validLoginLock = new ReentrantLock();	
 	private static boolean validLogin;
+	private static boolean concluiuInvocacao;
+	private static Condition concluiuInvocacaoCondition = validLoginLock.newCondition();
 	private Socket s;
 	private BufferedReader socketOut;
 	
@@ -53,9 +56,9 @@ public class AuctionClient extends Thread{
 			int option;
 			do{
 				/*maybe move this to a method */
-				validLoginLock.lock();
+				/* validLoginLock.lock();
 				validLogin = true;
-				validLoginLock.unlock();
+				validLoginLock.unlock();*/
 				
 				System.out.print(firstMenu());
 				try{
@@ -70,7 +73,13 @@ public class AuctionClient extends Thread{
 					System.out.println("Please choose one of the above options");
 				}
 				
-				Thread.sleep(300);
+				validLoginLock.lock();
+				while(!concluiuInvocacao){
+					concluiuInvocacaoCondition.await();
+				}
+				validLoginLock.unlock();
+
+				/*Thread.sleep(300);*/
 			}while(option==1 || !validLogin);
 			
 			/* At this point client is logged in */	
@@ -152,7 +161,11 @@ public class AuctionClient extends Thread{
 		System.out.print("Username: ");
 		data[0] = stdin.readLine();
 		System.out.print("Password: ");
-		data[1] = stdin.readLine();
+		if(System.console() == null) {
+		    data[1] = stdin.readLine();
+		} else{
+			data[1] = new String(System.console().readPassword("Password: "))
+		}
 
 		return data;
 	}
