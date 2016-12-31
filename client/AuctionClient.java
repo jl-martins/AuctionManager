@@ -42,7 +42,7 @@ public class AuctionClient extends Thread{
 		Socket s = new Socket("localhost", 8080);
 		BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
 		BufferedReader fromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
-		PrintWriter socketIn = new PrintWriter(s.getOutputStream(), true);
+		PrintWriter toServer = new PrintWriter(s.getOutputStream(), true);
 		AuctionClient readerThread = new AuctionClient(s, fromServer);
 		
 		/* Start Thread that reads from socket */
@@ -60,8 +60,8 @@ public class AuctionClient extends Thread{
 				System.out.print(firstMenu());
 				try{
 					option = Integer.parseInt(stdin.readLine());
-					if(option == 2) login(stdin, socketIn);
-					else if(option == 1) register(stdin, socketIn);
+					if(option == 2) login(stdin, toServer);
+					else if(option == 1) register(stdin, toServer);
 				}catch(NumberFormatException e){
 					validLoginLock.lock();
 					validLogin = false;
@@ -87,7 +87,7 @@ public class AuctionClient extends Thread{
 				}
 
 				logout = cmd[0].equals("logout");
-				sendMessageToServer(message.trim(), socketIn);
+				sendMessageToServer(message.trim(), toServer);
 			}
 		}while( !exitFlag );
 	}
@@ -114,10 +114,10 @@ public class AuctionClient extends Thread{
 		System.out.println(str.toString());
 	}
 	
-	public static void login(BufferedReader stdin, PrintWriter socketIn){
+	public static void login(BufferedReader stdin, PrintWriter toServer){
 		try{
 		String[] data = askForUsernamePassword(stdin);
-		socketIn.println("login "+data[0]+" "+data[1]);
+		toServer.println("login "+data[0]+" "+data[1]);
 		}catch(IOException e){
 		}
 	}
@@ -157,10 +157,10 @@ public class AuctionClient extends Thread{
 		return data;
 	}
 
-	public static void register(BufferedReader stdin, PrintWriter socketIn){
+	public static void register(BufferedReader stdin, PrintWriter toServer){
 		try{
 		String[] data = askForUsernamePassword(stdin);
-		socketIn.println("reg "+data[0]+" "+data[1]);
+		toServer.println("reg "+data[0]+" "+data[1]);
 		}catch(IOException e){
 		}
 	}
