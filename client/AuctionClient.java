@@ -11,8 +11,8 @@ public class AuctionClient extends Thread{
 
 	private static ReentrantLock validLoginLock = new ReentrantLock();	
 	private static boolean validLogin;
-	private static boolean concluiuInvocacao;
-	private static Condition concluiuInvocacaoCondition = validLoginLock.newCondition();
+	private static boolean invocationConcluded;
+	private static Condition invocationConcludedCondition = validLoginLock.newCondition();
 	private Socket s;
 	private BufferedReader socketOut;
 	
@@ -33,8 +33,10 @@ public class AuctionClient extends Thread{
 					validLoginLock.unlock();
 					System.out.println("Invalid Login");
 				}
-				else
+				else {
 					System.out.println(serverMessage);
+				}
+				invocationConcludedCondition.signal();
 			}
 			s.shutdownOutput();
 		}catch(IOException e){
@@ -74,8 +76,8 @@ public class AuctionClient extends Thread{
 				}
 				
 				validLoginLock.lock();
-				while(!concluiuInvocacao){
-					concluiuInvocacaoCondition.await();
+				while(!invocationConcluded){
+					invocationConcludedCondition.await();
 				}
 				validLoginLock.unlock();
 
