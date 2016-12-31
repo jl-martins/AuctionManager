@@ -36,7 +36,10 @@ public class AuctionClient extends Thread{
 				else {
 					System.out.println(serverMessage);
 				}
+				validLoginLock.lock();
+				invocationConcluded = true;
 				invocationConcludedCondition.signal();
+				validLoginLock.unlock();
 			}
 			s.shutdownOutput();
 		}catch(IOException e){
@@ -79,6 +82,7 @@ public class AuctionClient extends Thread{
 				while(!invocationConcluded){
 					invocationConcludedCondition.await();
 				}
+				invocationConcluded = false;
 				validLoginLock.unlock();
 
 				/*Thread.sleep(300);*/
