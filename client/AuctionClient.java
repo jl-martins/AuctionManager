@@ -11,11 +11,11 @@ public class AuctionClient extends Thread{
 	private static ReentrantLock validLoginLock = new ReentrantLock();	
 	private static boolean validLogin;
 	private Socket s;
-	private BufferedReader socketOut;
+	private BufferedReader fromServer;
 	
-	public AuctionClient(Socket s, BufferedReader socketOut){
+	public AuctionClient(Socket s, BufferedReader fromServer){
 		this.s = s;
-		this.socketOut = socketOut;
+		this.fromServer = fromServer;
 	}
 
 	/* This thread reads from socket!! */
@@ -23,7 +23,7 @@ public class AuctionClient extends Thread{
 		/* do work */
 		String serverMessage;
 		try{
-			while((serverMessage = socketOut.readLine()) != null){
+			while((serverMessage = fromServer.readLine()) != null){
 				if(serverMessage.equals("xl")){
 					validLoginLock.lock();
 					validLogin = false;
@@ -41,9 +41,9 @@ public class AuctionClient extends Thread{
 	public static void main(String[] args) throws IOException, InterruptedException{
 		Socket s = new Socket("localhost", 8080);
 		BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
-		BufferedReader socketOut = new BufferedReader(new InputStreamReader(s.getInputStream()));
+		BufferedReader fromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
 		PrintWriter socketIn = new PrintWriter(s.getOutputStream(), true);
-		AuctionClient readerThread = new AuctionClient(s, socketOut);
+		AuctionClient readerThread = new AuctionClient(s, fromServer);
 		
 		/* Start Thread that reads from socket */
 		readerThread.start();
@@ -92,13 +92,13 @@ public class AuctionClient extends Thread{
 		}while( !exitFlag );
 	}
 
-	public static void sendMessageToServer(String cmd, PrintWriter socketOut){
+	public static void sendMessageToServer(String cmd, PrintWriter fromServer){
 		switch(cmd.split(" ")[0]){
 			case "start": 
 			case "list":
 			case "bid":
 			case "close":
-			case "logout": socketOut.println(cmd); break;
+			case "logout": fromServer.println(cmd); break;
 			case "--help": showHelp(); break;
 			default:
 		}
