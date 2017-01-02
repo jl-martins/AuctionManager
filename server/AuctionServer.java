@@ -83,7 +83,7 @@ public class AuctionServer {
 			auctions.writeObj("AuctionsMap.ser");
             
 		} catch(IOException e) {
-			Logger.getLogger(AuctionServer.class.getName()).log(Level.SEVERE, "Error on writing program's state", e);
+			logger.log(Level.SEVERE, "Error on writing program's state", e);
 		}
 	}
 }

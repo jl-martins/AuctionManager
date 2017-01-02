@@ -20,6 +20,8 @@ public class AuctionClient extends Thread {
 		"Bid: bid <auctionId> <amount>", "Close Auction: close <auctionId>",
 		"Logout: logout", "Exit: exit"
 	};
+	private static final String PROMPT = ">>> ";
+    private static final int EXIT = 0, LOGIN = 1, LOGOUT = 2, CONTINUE = 3; // constants used for regulating login and main menu loops
 	/* AuctionClient's logger */
 	private static final Logger logger = Logger.getLogger(AuctionClient.class.getName());
 
@@ -42,12 +44,10 @@ public class AuctionClient extends Thread {
 		try {
 			do {
 				while(runFlag.getValue() == false) {
-					synchronized(runFlag) {
-						System.out.println("WAITING");
+                    synchronized(runFlag) {
 						runFlag.wait(); // wait until master thread tells this thread to run
 					}
 				}
-				System.out.println("RUNNING");
 				serverMessage = fromServer.readLine();
 				exitFlag = (serverMessage == null);
 				if(!exitFlag)
@@ -58,7 +58,6 @@ public class AuctionClient extends Thread {
 		} catch(InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
-		System.out.println("EXITING");
 	}
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
@@ -78,6 +77,7 @@ public class AuctionClient extends Thread {
 		} else {
 			System.err.println("Usage: AuctionClient [host [port]]");
 		}
+
 		work(s);
 	}
 
@@ -88,65 +88,83 @@ public class AuctionClient extends Thread {
 		BufferedReader fromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
 		RunFlag runFlag = new RunFlag(false);
 		AuctionClient readerThread = new AuctionClient(s, fromServer, runFlag);
-		boolean exitFlag = false;
+		int r = CONTINUE;
 
 		readerThread.start(); // readerThread starts with runFlag set to false. It won't run until after login	
 		do {
-			exitFlag = !loginAndRegister(stdin, toServer, fromServer);
-			System.out.println("Exit flag " + exitFlag);
-			if(!exitFlag) {
-				/* At this point client is logged in */	
-				printHelp();
-				runFlag.setValue(true);
-				synchronized(runFlag) {
-					runFlag.notify(); // tell readerThread to run
-				}
-			}
-			String message;
-			String[] cmd;
-			boolean logout = false;
+			r = loginAndRegister(stdin, toServer, fromServer); // run the login and register loop and store its return value in r
 
-			while(!exitFlag && !logout && ((message = stdin.readLine()) != null)) {
-				message = message.trim();
-				cmd = message.split(" ");
-			
-				logout = cmd[0].equalsIgnoreCase("logout");
-				if(logout)
-					runFlag.setValue(false);
-				else
-					exitFlag = cmd[0].equalsIgnoreCase("exit");
-					
-				sendMessageToServer(message, toServer);
-			}
-		} while(!exitFlag);
+			if(r == LOGIN)
+				r = mainMenu(stdin, toServer, runFlag, readerThread); // during the main menu loop, server messages are read by readerThread
 
+		} while(r != EXIT);
+
+		runFlag.setValue(true);
+		synchronized(runFlag) { // tells readerThread to run if it's waiting on runFlag, so it can exit
+			runFlag.notify();
+		}
 		s.shutdownOutput();
 	}
 
-	private static boolean loginAndRegister(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer)
+	private static int loginAndRegister(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer)
 		throws IOException
 	{
-		int option = -1;
-		boolean exitFlag = false, validLogin = false;
+		int r = CONTINUE, option = 0;
 
 		do {
 			try {
 				printMenu(loginRegisterOptions);
 				option = Integer.valueOf(stdin.readLine());
-				if(option == 1)
-					validLogin = login(stdin, toServer, fromServer);
+				if(option == 1 && login(stdin, toServer, fromServer))
+					r = LOGIN; // indicates a successful login
 				else if(option == 2)
 					register(stdin, toServer, fromServer);
 				else if(option == 3)
-					exitFlag = true;
+					r = EXIT;
 				else
 					System.err.println("Invalid option!");
 			} catch(NumberFormatException e) {
 				System.err.println("Invalid option!");
 			}
-		} while(!validLogin && !exitFlag);
+		} while(r != LOGIN && r != EXIT);
 
-		return validLogin;
+		return r;
+	}
+
+	private static int mainMenu(BufferedReader stdin, PrintWriter toServer, RunFlag runFlag, AuctionClient readerThread)
+		throws IOException
+	{
+		/* At this point client is logged in */
+		printHelp();
+		runFlag.setValue(true);
+		synchronized(runFlag) {
+			runFlag.notify();
+		}
+
+		String message;
+		String[] args;
+		int r = CONTINUE;
+		do {
+			System.out.println(PROMPT);
+			message = stdin.readLine();
+			if(message == null) // EOF
+				r = EXIT;
+			else {
+				message = message.trim();
+				args = message.split(" ");
+
+				if(args[0].equalsIgnoreCase("logout")) {
+					runFlag.setValue(false);
+					r = LOGOUT;
+				} else if(args[0].equalsIgnoreCase("exit")) {
+					runFlag.setValue(false);
+					r = EXIT;
+				}
+				sendMessageToServer(message, toServer);
+			}
+		} while(r != EXIT && r != LOGOUT);
+
+		return r;
 	}
 
 	private static String[] getUsernamePassword(BufferedReader stdin) throws IOException {		
@@ -191,14 +209,23 @@ public class AuctionClient extends Thread {
         }
 	}
 
-	private static void printMenu(String[] options) {
-		for(int i = 1; i <= options.length; ++i)
+	private static void printMenu(String[] options) { // %n is the platform-specific line separator
+		int i;
+
+		for(i = 1; i <= options.length; ++i)
 			System.out.printf("%d. %s%n", i, options[i-1]);
+
+		System.out.println(PROMPT);
 	}
 
 	private static void printHelp() {
+		final String separator = "-------------------------------------";
+
+		System.out.printf("%s%n", separator);
 		for(String str : helpLines)
 			System.out.println(str);
+
+		System.out.printf("%s%n", separator);
 	}
 
 	private static void sendMessageToServer(String cmd, PrintWriter toServer) {
