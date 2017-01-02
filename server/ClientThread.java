@@ -11,13 +11,14 @@ public class ClientThread implements Runnable {
 	private Socket s;
 	private UsersMap users;			/* shared state */
 	private AuctionsMap auctions;		/* shared state */
-	private BufferedReader output;
-	private PrintWriter input;
+	private BufferedReader fromClient;
+	private PrintWriter toClient;
 	private String loggedUser;
 	private NotificationsThread nf;
 	private Counter nextAuctionId;
+    private static final Logger logger = Logger.getLogger(ClientThread.class.getName());
 
-	public ClientThread(Socket s, UsersMap users, AuctionsMap auctions, Counter nextAuctionId){
+	public ClientThread(Socket s, UsersMap users, AuctionsMap auctions, Counter nextAuctionId) {
 		this.s = s;
 		this.users = users;
 		this.auctions = auctions;
@@ -25,38 +26,40 @@ public class ClientThread implements Runnable {
 		this.nextAuctionId = nextAuctionId;
 	}
 	
-	public void run(){
-		try{
-			output = new BufferedReader(new InputStreamReader(s.getInputStream()));
-			input = new PrintWriter(s.getOutputStream(),true);
+	public void run() {
+		try {
+			fromClient = new BufferedReader(new InputStreamReader(s.getInputStream()));
+			toClient = new PrintWriter(s.getOutputStream(),true);
 
 			String m;
-			while(((m = output.readLine()) != null)){
+			while(((m = fromClient.readLine()) != null)){
 				String[] cmd = m.split(" ");
 				loggedUser = cmd[0].equals("logout") ? "" : loggedUser;
 				parse(cmd);
 			}
 			s.close();
-		}catch(IOException e){
+		} catch(IOException e) {
+            logger.log(Level.SEVERE, e.getMessage(), e);
 		}
 		
 	}
 
 	/* TODO: validate input */
-	public boolean parse(String[] cmd){
+	public boolean parse(String[] cmd) {
 		boolean error = false;
+        
 		switch(cmd[0]){
 			case "login": 
 				error = (cmd.length != 3); 
-				if(!error && login(cmd[1], cmd[2])){
+				if(!error && login(cmd[1], cmd[2])) {
 					users.lock();
-					(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), input)).start();
+					(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), toClient)).start();
 					users.unlock();
 				}
 				break;
 			case "reg": 
 				error = (cmd.length != 3);
-				if(!error){
+				if(!error) {
 					register(cmd[1],cmd[2]);
 				}
 				break;
@@ -70,22 +73,25 @@ public class ClientThread implements Runnable {
 				break;
 			case "bid":
 				error = (cmd.length != 3);
-				if(!error){
+				if(!error) {
 					try{
 						int auctionId = Integer.parseInt(cmd[1]);
-						double amount = Double.parseDouble(cmd[2]);
-						bid(auctionId, amount);
-					}catch(NumberFormatException e){
+						double ammount = Double.parseDouble(cmd[2]);
+						bid(auctionId, ammount);
+					} catch(NumberFormatException e) {
+                        toClient.println("Auction id must be an integer and the bidded ammount must be decimal");
 					}			
 				}
 				break;
 			case "close":
 				error = (cmd.length != 2);
-				if(!error)
-					try{
+                if(!error) {
+					try {
 						closeAuction(Integer.parseInt(cmd[1]));
-					}catch(NumberFormatException e){
-					}
+					} catch(NumberFormatException e){
+                        toClient.println("Auction id must be an integer");
+                    }
+                }
 				break;
 			case "logout":
 				nf.cancel();
@@ -93,21 +99,20 @@ public class ClientThread implements Runnable {
 			default:
 				System.out.println(cmd[0]);
 		}
-
 		return error;
 	}
 
-	private String getDescription(String[] cmd){
+	private String getDescription(String[] cmd) {
 		/* cmd[0] is the command "start" auction */
 		/* Everything in front of that is the description of the item */
-		StringBuilder str = new StringBuilder();
+		StringBuilder sb = new StringBuilder();
 		for(int i = 1; i < cmd.length; i++)
-			str.append(cmd[i]).append(" ");
+			sb.append(cmd[i]).append(" ");
 		
-		return str.toString().trim();
+		return sb.toString().trim();
 	} 
 	
-	public void startAuction(String[] cmd){
+	public void startAuction(String[] cmd) {
 		String descr = getDescription(cmd);
 		int auctionId = nextAuctionId.getCurrentValueAndIncrement();
 		Auction a = new Auction(loggedUser, descr, auctionId);
@@ -121,15 +126,14 @@ public class ClientThread implements Runnable {
 		users.unlock();
 
 
-		input.println("Auction started with id: "+auctionId);
-		Logger.getLogger(ClientThread.class.getName())
-			.log(Level.INFO, "["+loggedUser+"]: Auction started with id: "+auctionId+". Description: "+descr);
+		toClient.println("Auction started with id: " + auctionId);
+		logger.log(Level.INFO, "[" + loggedUser + "]: Auction started with id: " + auctionId + ". Description: " + descr);
 	}
 
-	public void listAuctions(){
+	public void listAuctions() {
 		Client c = null;
-		StringBuilder str = new StringBuilder();
-		int lines = 10;
+		StringBuilder sb = new StringBuilder();
+		final int LINES = 10;
 		int i = 0;
 
 		users.lock();
@@ -138,112 +142,117 @@ public class ClientThread implements Runnable {
 	
 		auctions.lock();
 		if(auctions.size() == auctions.getClosedAuctions()){
-			input.println("There are no open auctions.");
+			toClient.println("There are no open auctions.");
 		}
 		try{
 			for(Auction a: auctions.values()){
-				if(a.isTerminated()) continue;
-				++i;
+				if(a.isTerminated())
+                    continue;
+				
+                ++i;
 				a.lock();
 				int auctionId = a.getAuctionId();
 
-				str.append("[").append(auctionId).append("] ");
-				str.append(a.getDescription());
+				sb.append("[").append(auctionId).append("] ");
+				sb.append(a.getDescription());
 			
-				str.append(" Highest Bid: ");
-				if(a.getHighestBid() == 0) str.append("n/a");
-				else str.append(a.getHighestBid());
+				sb.append(" Highest Bid: ");
+				if(a.getHighestBid() == 0.0)
+                    sb.append("n/a");
+				else
+                    sb.append(a.getHighestBid());
 
 				if(c.isAuctioneerOf(auctionId)){
-					str.append("* ");
-				}
-				else if (a.getHighestBidder().equals(loggedUser)){
-					str.append("+ ");	
+					sb.append("* ");
+				} else if (a.getHighestBidder().equals(loggedUser)) {
+					sb.append("+ ");	
 				}
 
-				str.append("\n");
+				sb.append("\n");
 				a.unlock();
-				if(i == lines || (i == auctions.size()-auctions.getClosedAuctions())){
-					String s = str.toString();
-					input.println(s);
-					str.delete(0, s.length()-1);
+				if(i == LINES || (i == auctions.size() - auctions.getClosedAuctions())){
+					String s = sb.toString();
+					toClient.println(s);
+					sb.delete(0, s.length() - 1);
 					i = 0;
 				}
 			}
-		}finally{
+		} finally {
 			auctions.unlock();
 		}
 	}
 
-	public void bid(int auctionId, double amount){
+	public void bid(int auctionId, double amount) {
 		Auction a;
 		auctions.lock();
-		try{
-			/*TODO: This is ugly..very ugly */
+		try {
 			if(!auctions.containsAuction(auctionId)){
-				input.println("There are no in course auctions with that id!");
+				toClient.println("There are no in course auctions with that id!");
 				return;
 			}
 			a = auctions.get(auctionId);
 			a.lock();
-		}finally{
+		} finally {
 			auctions.unlock();
 		}
 		
-		try{	
-			StringBuilder str = new StringBuilder();
+		try {
+			StringBuilder sb = new StringBuilder();
 			if(!a.isTerminated()){
-				String s = a.getHighestBidder();
+				String highestBidder = a.getHighestBidder();
 				a.bid(loggedUser, amount);
-				if(!s.equals("")){
-					str.append("Your bid in the auction with id: ").append(auctionId);
-					str.append(" was passed by ").append(loggedUser);
-					str.append("'s bid of ").append(amount);
-					users.get(s).add(str.toString());
+				if(!highestBidder.equals("")){
+					sb.append("Your bid in the auction with id: ").append(auctionId);
+					sb.append(" was passed by ").append(loggedUser);
+					sb.append("'s bid of ").append(amount);
+					users.get(highestBidder).add(sb.toString());
 				}
 			}
 
-			Logger.getLogger(ClientThread.class.getName()).log(Level.INFO, "["+loggedUser+"]: bid "+amount+"on "+a.getDescription());
-		}catch(InvalidBidException e){
-			input.println(e.getMessage());
-			Logger.getLogger(ClientThread.class.getName()).log(Level.INFO, "["+loggedUser+"]: tried to bid less than the current highest bid", e);
-		}finally{
+			logger.log(Level.INFO, "[" + loggedUser + "]: bid " + amount + "on " + a.getDescription());
+		} catch(InvalidBidException e) {
+			toClient.println(e.getMessage());
+			logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid less than the current highest bid.", e);
+        } catch(AlreadyHighestBidderException e) {
+            toClient.println(e.getMessage());
+            logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid while already having the highest bid.", e);
+        } finally {
 			a.unlock();
 		}
 	}
 
-	public void closeAuction(int auctionId){
+	public void closeAuction(int auctionId) {
 		String notification = null;
 		Auction a;
+        
 		auctions.lock();
-		try{
-			if(!auctions.containsAuction(auctionId)){
-				input.println("There are no in course auctions with that id");
+		try {
+			if(!auctions.containsAuction(auctionId)) {
+				toClient.println("There are no in course auctions with that id");
 				return;
 			}
 			
 			a = auctions.get(auctionId);
 			a.lock();
-		}finally{
+		} finally {
 			auctions.unlock();
 		}
 
-		try{
-			/*TODO: again very ugly */
-			if(!a.getAuctioneer().equals(loggedUser)){
-				input.println("You're not authorized to close this auction");
+		try {
+			if(!a.getAuctioneer().equals(loggedUser)) {
+				toClient.println("You're not authorized to close this auction");
 				return;
 			}
 			
 			Set<String> bidders;
-			if(!a.isTerminated()){
-				StringBuilder str = new StringBuilder();
+			if(!a.isTerminated()) {
+				StringBuilder sb = new StringBuilder();
 		
-				str.append("Auction #").append(auctionId);
-				str.append(" closed with value ").append(a.getHighestBid());
-				str.append(" from user ").append(a.getHighestBidder());
+				sb.append("Auction #").append(auctionId);
+				sb.append(" closed with value ").append(a.getHighestBid());
+				sb.append(" from user ").append(a.getHighestBidder());
 
-				notification = str.toString();
+				notification = sb.toString();
 				bidders = a.getBidders();
 				bidders.add(loggedUser);
 				for(String bidder: bidders){
@@ -253,55 +262,57 @@ public class ClientThread implements Runnable {
 				auctions.incClosedAuctions();
 			}	
 			
-			Logger.getLogger(ClientThread.class.getName()).log(Level.INFO, "["+loggedUser+"]: "+notification);
-		}finally{
+			logger.log(Level.INFO, "[" + loggedUser + "]: " + notification);
+		} finally {
 			a.unlock();
 		}
 	}
 
-	public void register(String username, String password){
+	public void register(String username, String password) {
 		users.lock();
-		try{
-			if(!users.containsUser(username)){
+		try {
+			if(!users.containsUser(username)) {
 				users.addUser(new Client(username, password));
-				input.println("Registration Successful!");
-				Logger.getLogger(ClientThread.class.getName()).log(Level.INFO, "User added with username: "+username);
+				toClient.println("Registration successful!");
+				logger.log(Level.INFO, "User added with username: " + username);
 				
+			} else {
+				toClient.println("Username already in use!");
 			}
-			else{
-				input.println("Username already in use!");
-			}
-		}finally{
+		} finally {
 			users.unlock();
 		}
 	}
 
-	public boolean login(String username, String password){
+	public boolean login(String username, String password) {
 		Client c = null;
 		boolean isValid = false;
-		users.lock();
-		try{
+		
+        users.lock();
+		try {
 			if(users.containsUser(username))
 				c = users.get(username);
 			else	
-				throw new UserNonexistentException("xl"); /* login error code */
-		}catch(UserNonexistentException e){
-			input.println(e.getMessage()); 
-			Logger.getLogger(ClientThread.class.getName()).log(Level.INFO, "invalid login", e);
+				throw new UserNonExistentException("Invalid credentials"); /* login error code */
+		} catch(UserNonExistentException e){
+			toClient.println(e.getMessage()); 
+			logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
 			isValid = false;
 			return isValid;
-		}finally{
+		} finally {
 			users.unlock();
 		}
 	
-		try{	
+		try {
 			isValid = c.checkPassword(password);
 
-			if(isValid) 
+            if(isValid) {
 				this.loggedUser = username;
-		}catch(AuthorizationException e){
-			input.println(e.getMessage());
-			Logger.getLogger(ClientThread.class.getName()).log(Level.INFO, "invalid login", e);
+                toClient.println("Login successful");
+            }
+		} catch(AuthorizationException e) {
+			toClient.println(e.getMessage());
+			logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
 		}
 		return isValid;
 	}

@@ -27,7 +27,9 @@ import java.util.TimerTask;
  */
 
 
-public class AuctionServer{
+public class AuctionServer {
+    private static final Logger logger = Logger.getLogger(AuctionServer.class.getName());
+    
 	public static void main(String[] args) {
 		ServerSocket serverSocket;
 		Socket socket = null;
@@ -40,13 +42,13 @@ public class AuctionServer{
 		UsersMap usersTemp = null;
 		AuctionsMap auctionsTemp = null; 
 
-		try{	
+		try {
 			usersTemp = UsersMap.readObj("UsersMap.ser");
 			auctionsTemp = AuctionsMap.readObj("AuctionsMap.ser");
-		}catch(IOException | ClassNotFoundException e){
+		} catch(IOException | ClassNotFoundException e) {
 			usersTemp = new UsersMap();
 			auctionsTemp = new AuctionsMap();
-			Logger.getLogger(AuctionServer.class.getName()).log(Level.SEVERE, "Error on reading saved data");
+			logger.log(Level.SEVERE, "Error on reading saved data");
 		}
 
 		users = usersTemp;
@@ -55,13 +57,13 @@ public class AuctionServer{
 		/* this will synchronize the auction id atribution */
 		nextAuctionId = new Counter(auctions.size());
 		Timer scheduledWriter = new Timer();
-		TimerTask hourlyTask = new TimerTask(){				
-			public void run(){
+		TimerTask hourlyTask = new TimerTask() {
+			public void run() {
 				writeData(users, auctions);
 			}
 		};
 
-		try{
+		try {
 			scheduledWriter.scheduleAtFixedRate(hourlyTask, 0, 1000*60*5); /* 5 minutes for testing */
 			serverSocket = new ServerSocket(8080);
 			while((socket = serverSocket.accept()) != null){
@@ -69,19 +71,18 @@ public class AuctionServer{
 				   if necessary */
 				Thread ct = new Thread(new ClientThread(socket,users,auctions, nextAuctionId));
 				ct.start();
-			}	
-		
-		}catch(IOException e){
-			Logger.getLogger(AuctionServer.class.getName()).log(Level.SEVERE, "Server went down", e);
+			}
+		} catch(IOException e) {
+			logger.log(Level.SEVERE, "Server went down", e);
 		}
 	}
 	
-	public static void writeData(UsersMap users, AuctionsMap auctions){
-		try{
+	public static void writeData(UsersMap users, AuctionsMap auctions) {
+		try {
 			users.writeObj("UsersMap.ser");
 			auctions.writeObj("AuctionsMap.ser");
-		
-		}catch(IOException e){
+            
+		} catch(IOException e) {
 			Logger.getLogger(AuctionServer.class.getName()).log(Level.SEVERE, "Error on writing program's state", e);
 		}
 	}

@@ -10,93 +10,93 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import java.io.Serializable;
 
-public class AuctionsMap implements Serializable{
+public class AuctionsMap implements Serializable {
 	private Map<Integer, Auction> auctions;
 	private int closedAuctions;
 	private ReentrantLock auctionsLock;
 	
-	public AuctionsMap(){
+	public AuctionsMap() {
 		auctions = new HashMap<>();
 		auctionsLock = new ReentrantLock();
 		closedAuctions = 0;
 	}
 
-	public void lock(){
+	public void lock() {
 		auctionsLock.lock();
 	}
 
-	public void unlock(){
+	public void unlock() {
 		auctionsLock.unlock();
 	}
 
-	public void addAuction(Auction a){
+	public void addAuction(Auction a) {
 		lock();
-		try{
+		try {
 			auctions.put(a.getAuctionId(), a);
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public Auction get(int auctionId){
+	public Auction get(int auctionId) {
 		lock();
-		try{
+		try {
 			return auctions.get(auctionId);
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public boolean containsAuction(int id){
+	public boolean containsAuction(int id) {
 		lock();
-		try{
+		try {
 			return auctions.containsKey(id);
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public int size(){
+	public int size() {
 		lock();
-		try{
+		try {
 			return auctions.size();
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 	
 	public Collection<Auction> values() {
 		lock();
-		try{
+		try {
 			return auctions.values();
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
 	public Collection<Integer> keys() {
 		lock();
-		try{
+		try {
 			return auctions.keySet();
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public int getClosedAuctions(){
+	public int getClosedAuctions() {
 		lock();
-		try{
+		try {
 			return closedAuctions;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public void incClosedAuctions(){
+	public void incClosedAuctions() {
 		lock();
-		try{
+		try {
 			closedAuctions += 1;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
@@ -110,7 +110,9 @@ public class AuctionsMap implements Serializable{
 
 	public void writeObj(String file) throws IOException{
 		ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file));
+        lock();
 		oos.writeObject(this);
+        unlock();
 		oos.flush();
 		oos.close();
 	}

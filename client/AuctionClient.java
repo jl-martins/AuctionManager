@@ -139,7 +139,7 @@ public class AuctionClient extends Thread {
 				if(option == 1)
 					validLogin = login(stdin, toServer, fromServer);
 				else if(option == 2)
-					register(stdin, toServer);
+					register(stdin, toServer, fromServer);
 				else if(option == 3)
 					exitFlag = true;
 				else
@@ -149,7 +149,7 @@ public class AuctionClient extends Thread {
 			}
 		} while(!validLogin && !exitFlag);
 
-		return exitFlag;
+		return validLogin;
 	}
 
 	private static boolean existsCmd(String cmd) {
@@ -167,30 +167,29 @@ public class AuctionClient extends Thread {
 		return credentials;
 	}
 
-	private static void register(BufferedReader stdin, PrintWriter toServer){
+	private static void register(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer){
 		try{
 			String[] credentials = getUsernamePassword(stdin);
 			toServer.println("reg " + credentials[0] + " " + credentials[1]);
+            System.out.println(fromServer.readLine());
 		} catch(IOException e) {
 			// HANDLE EXCEPTION
 		}
 	}
 
 	private static boolean login(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer) {
-		boolean validLogin = false;
-
+        String serverReply = null;
+        
 		try {
 			String[] credentials = getUsernamePassword(stdin);
 			toServer.println("login " + credentials[0] + " " + credentials[1]);
-			validLogin = !fromServer.readLine().equals("xl"); // "xl" means invalid login
-			if(!validLogin)
-				System.err.println("Invalid login!");
-			else
-				System.out.println(fromServer.readLine());
+            serverReply = fromServer.readLine();
+            System.out.println(serverReply);
 		} catch(IOException e){
 			// HANDLE EXCEPTION!
+            return false;
 		}
-		return validLogin;
+		return !serverReply.equals("Invalid credentials");
 	}
 
 	private static void printMenu(String[] options) {

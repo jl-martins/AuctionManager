@@ -3,18 +3,18 @@ import java.util.concurrent.locks.Condition;
 import java.util.Queue;
 import java.util.LinkedList;
 
-public class NotificationsThread extends Thread{
+public class NotificationsThread extends Thread {
 	private Notifications buffer;
 	private PrintWriter socketIn;
 	private Condition available;
 
-	public NotificationsThread(Notifications buffer, PrintWriter socketIn){
+	public NotificationsThread(Notifications buffer, PrintWriter socketIn) {
 		this.buffer = buffer;
 		this.socketIn = socketIn;
 		this.available = buffer.getAvailableCondition();
 	}
 
-	public void run(){
+	public void run() {
 		try{
 			while(!Thread.currentThread().isInterrupted()){
 				buffer.lock();
@@ -30,8 +30,9 @@ public class NotificationsThread extends Thread{
 				socketIn.println(str.toString());
 				buffer.unlock();
 			}
-		}catch(InterruptedException e){
-		}
+		} catch(InterruptedException e) {
+            interrupt();
+        }
 	}
 
 	public void cancel(){

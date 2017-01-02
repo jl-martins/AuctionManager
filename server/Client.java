@@ -8,14 +8,14 @@ import java.util.concurrent.locks.Condition;
 
 import java.io.Serializable;
 
-public class Client implements Serializable{
+public class Client implements Serializable {
 	private String username;
 	private String password;
-	private Set<Integer> auctionsOwned;		/* Auctions in which he's the auctioneer */
-	private Set<Integer> auctionsIn;		/* Auctions he's in as a bidder */
-	private	Notifications notifications; 	/* FIFO of notifications */
+	private Set<Integer> auctionsOwned;		/* Auctions in which the client is the auctioneer */
+	private Set<Integer> auctionsIn;		/* Auctions in which the client is in as a bidder */
+	private	Notifications notifications; 	/* FIFO queue of notifications */
 
-	public Client(String username, String password){
+	public Client(String username, String password) {
 		this.username = username;
 		this.password = password;
 		this.auctionsOwned = new HashSet<>();
@@ -23,43 +23,44 @@ public class Client implements Serializable{
 		this.notifications = new Notifications();
 	}
 
-	public String getUsername(){
+	public String getUsername() {
 		return username;
 	}
 
-	public String getPassword(){
+	public String getPassword() {
 		return password;
 	}
 
-	public Notifications getNotifications(){
+	public Notifications getNotifications() {
 		return notifications;
 	}
 
-	public void addAuction(int auctionId, boolean asBidder){
+	public void addAuction(int auctionId, boolean asBidder) {
 		if(!asBidder)
 			auctionsOwned.add(auctionId);
 		else
 			auctionsIn.add(auctionId);
 	}
 
-	public boolean isAuctioneerOf(int auctionId){
+	public boolean isAuctioneerOf(int auctionId) {
 		return auctionsOwned.contains(auctionId);
 	}
 
-	public boolean isBidderIn(int auctionId){
+	public boolean isBidderIn(int auctionId) {
 		return auctionsIn.contains(auctionId);
 	}
 	
 	/*
-	public void removeAuction(int auctionId){
+	public void removeAuction(int auctionId) {
 		auctionsOwned.remove(auctionId);
 	}	
 	*/
 
-	public boolean checkPassword(String password) throws AuthorizationException{
+	public boolean checkPassword(String password) throws AuthorizationException {
 		if(!this.password.equals(password))
-			throw new AuthorizationException("xl");
-		return this.password.equals(password);
+			throw new AuthorizationException("Invalid credentials");
+		
+        return true;
 	}
 
 	public void add(String notification){

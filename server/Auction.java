@@ -8,8 +8,8 @@ import java.io.Serializable;
 
 public class Auction implements Serializable{
 	private final int auctionId;
-	private ReentrantLock auctionLock;
-	private String auctioneer;
+	private final ReentrantLock auctionLock;
+	private final String auctioneer;
 	private String description;
 	private List<String> licitationHistory;
 	private String highestBidder;
@@ -17,10 +17,10 @@ public class Auction implements Serializable{
 	private Set<String> bidders;
 	private boolean terminated;
 
-	public Auction(String auctioneer, String description, int id){
+	public Auction(String auctioneer, String description, int id) {
 		this.auctioneer = auctioneer;
 		this.description = description;
-		highestBidder = "";
+		highestBidder = null;
 		highestBid = 0.0;
 		licitationHistory = new ArrayList<>();
 		auctionLock = new ReentrantLock();
@@ -30,42 +30,42 @@ public class Auction implements Serializable{
 	}
 
 
-	public void lock(){
+	public void lock() {
 		auctionLock.lock();
 	}
 
-	public void unlock(){
+	public void unlock() {
 		auctionLock.unlock();
 	}
 	
-	public String getAuctioneer(){
+	public String getAuctioneer() {
 		lock();
-		try{
+		try {
 			return auctioneer;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 	
-	public int getAuctionId(){
+	public int getAuctionId() {
 		lock();
-		try{
+		try {
 			return auctionId;
-		}finally{
+		} finally {
 			unlock();
 		}	
 	}
 
-	public String getDescription(){
+	public String getDescription() {
 		lock();
-		try{
+		try {
 			return description;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public void bid(String bidder, double bid) throws InvalidBidException{
+	public void bid(String bidder, double bid) throws InvalidBidException, AlreadyHighestBidderException {
 		lock();
 		
 		bidders.add(bidder);
@@ -74,65 +74,64 @@ public class Auction implements Serializable{
 			if(bid <= highestBid)
 				throw new InvalidBidException("Your bid should be higher than the current highest bid!");
 
-			if(bid > highestBid){
-				highestBid = bid;
-				highestBidder = bidder;
-			}
-
-			licitationHistory.add(bidder+": "+bid);
-		}finally{
+			if(bidder.equals(highestBidder))
+                throw new AlreadyHighestBidderException("You cannot bid, because you already have the highest bid.");
+            
+            highestBid = bid;
+            highestBidder = bidder;
+			licitationHistory.add(bidder + ": " + bid);
+		} finally {
 			unlock();
 		}
 	}
 
-	public String getHighestBidder(){
+	public String getHighestBidder() {
 		lock();
-		try{
+		try {
 			return highestBidder;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public double getHighestBid(){
+	public double getHighestBid() {
 		lock();
-		try{
+		try {
 			return highestBid;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public boolean isTerminated(){
+	public boolean isTerminated() {
 		lock();
-		try{
+		try {
 			return terminated;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public void terminate(){
+	public void terminate() {
 		lock();
-		try{
+		try {
 			terminated = true;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public Set<String> getBidders(){
+	public Set<String> getBidders() {
 		lock();
-		try{
+		try {
 			return bidders;
-		}finally{
+		} finally {
 			unlock();
 		}
 	}
 
-	public List<String> readHistory(){
+	public List<String> readHistory() {
 		/*TODO: later */
 		return null;
 	}
-	
 }

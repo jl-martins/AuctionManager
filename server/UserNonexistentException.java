@@ -1,5 +1,5 @@
-public class UserNonexistentException extends Exception{
-	public UserNonexistentException(String message){
+public class UserNonExistentException extends Exception {
+	public UserNonExistentException(String message) {
 		super(message);
 	}
 }
