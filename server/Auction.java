@@ -7,8 +7,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.io.Serializable;
 
 public class Auction implements Serializable{
-	private static int nextId = 0;
-	private final int auctionId = ++nextId;
+	private final int auctionId;
 	private ReentrantLock auctionLock;
 	private String auctioneer;
 	private String description;
@@ -18,7 +17,7 @@ public class Auction implements Serializable{
 	private Set<String> bidders;
 	private boolean terminated;
 
-	public Auction(String auctioneer, String description){
+	public Auction(String auctioneer, String description, int id){
 		this.auctioneer = auctioneer;
 		this.description = description;
 		highestBidder = "";
@@ -27,6 +26,7 @@ public class Auction implements Serializable{
 		auctionLock = new ReentrantLock();
 		bidders = new HashSet<>();
 		terminated = false;
+		auctionId = id; 
 	}
 
 
@@ -128,10 +128,6 @@ public class Auction implements Serializable{
 		}finally{
 			unlock();
 		}
-	}
-
-	public static void setNextId(int id){
-		nextId = id;
 	}
 
 	public List<String> readHistory(){

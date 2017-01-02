@@ -28,46 +28,47 @@ import java.util.TimerTask;
 
 
 public class AuctionServer{
-	private static UsersMap users;
-	private static AuctionsMap auctions;
-
 	public static void main(String[] args) {
 		ServerSocket serverSocket;
 		Socket socket = null;
-		
-		try{	
-			users = UsersMap.readObj("UsersMap.ser");
-			auctions = AuctionsMap.readObj("AuctionsMap.ser");
-		
-		}catch(IOException | ClassNotFoundException e){
-			
-			users = new UsersMap();
-			auctions = new AuctionsMap();
-			Logger.getLogger(AuctionServer.class.getName()).log(Level.SEVERE, "Error on reading saved data");
-		
-		}
-		
-		/* A not very pretty way to not lose the next auction id */
-		Auction.setNextId(auctions.size());	
+		Counter nextAuctionId;
 
+		/* final variables due to java restriction to only use final variables in innerclasses */
+		final UsersMap users;
+		final AuctionsMap auctions;
+		/* used to circumvent java's warning of possibly assigning two times */
+		UsersMap usersTemp = null;
+		AuctionsMap auctionsTemp = null; 
+
+		try{	
+			usersTemp = UsersMap.readObj("UsersMap.ser");
+			auctionsTemp = AuctionsMap.readObj("AuctionsMap.ser");
+		}catch(IOException | ClassNotFoundException e){
+			usersTemp = new UsersMap();
+			auctionsTemp = new AuctionsMap();
+			Logger.getLogger(AuctionServer.class.getName()).log(Level.SEVERE, "Error on reading saved data");
+		}
+
+		users = usersTemp;
+		auctions = auctionsTemp;
+
+		/* this will synchronize the auction id atribution */
+		nextAuctionId = new Counter(auctions.size());
+		Timer scheduledWriter = new Timer();
+		TimerTask hourlyTask = new TimerTask(){				
+			public void run(){
+				writeData(users, auctions);
+			}
+		};
 
 		try{
-			Timer scheduledWriter = new Timer();
-			TimerTask hourlyTask = new TimerTask(){
-				
-				public void run(){
-					writeData(users,auctions);
-				}
-			
-			};
-
 			scheduledWriter.scheduleAtFixedRate(hourlyTask, 0, 1000*60*5); /* 5 minutes for testing */
-			
 			serverSocket = new ServerSocket(8080);
 			while((socket = serverSocket.accept()) != null){
 				/* This thread will read the command, act on it and send a reply
 				   if necessary */
-				(new Thread(new ClientThread(socket,users,auctions))).start();
+				Thread ct = new Thread(new ClientThread(socket,users,auctions, nextAuctionId));
+				ct.start();
 			}	
 		
 		}catch(IOException e){

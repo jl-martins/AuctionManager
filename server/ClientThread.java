@@ -15,12 +15,14 @@ public class ClientThread implements Runnable {
 	private PrintWriter input;
 	private String loggedUser;
 	private NotificationsThread nf;
+	private Counter nextAuctionId;
 
-	public ClientThread(Socket s, UsersMap users, AuctionsMap auctions){
+	public ClientThread(Socket s, UsersMap users, AuctionsMap auctions, Counter nextAuctionId){
 		this.s = s;
 		this.users = users;
 		this.auctions = auctions;
 		loggedUser = "";
+		this.nextAuctionId = nextAuctionId;
 	}
 	
 	public void run(){
@@ -106,16 +108,12 @@ public class ClientThread implements Runnable {
 	} 
 	
 	public void startAuction(String[] cmd){
-		int auctionId;
 		String descr = getDescription(cmd);
+		int auctionId = nextAuctionId.getCurrentValueAndIncrement();
+		Auction a = new Auction(loggedUser, descr, auctionId);
+
 		auctions.lock();
-		
-		Auction a = new Auction(loggedUser, descr);
-		auctionId = a.getAuctionId();
-		
 		auctions.addAuction(a);
-		
-		
 		auctions.unlock();
 	
 		users.lock();
