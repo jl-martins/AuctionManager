@@ -279,17 +279,13 @@ public class ClientThread implements Runnable {
                 double highestBid = a.getHighestBid();
                 String highestBidder = a.getHighestBidder();
                 
-                if(loggedUser.equals(highestBidder)) {
-                    sb.append("You won auction #").append(auctionId);
-                    sb.append(" with a bid of ").append(highestBid);
+                sb.append("Auction #").append(auctionId);
+                if(!highestBidder.equals("")) {
+                    sb.append(" closed with value ").append(highestBid);
+                    sb.append(" from user ").append(highestBidder);
+                    users.get(highestBidder).add("You won auction #" + auctionId + " with a bid of " + highestBid);
                 } else {
-                    sb.append("Auction #").append(auctionId);
-                    if(!highestBidder.equals("")) {
-                        sb.append(" closed with value ").append(highestBid);
-                        sb.append(" from user ").append(highestBidder);
-                    } else {
-                        sb.append(" closed. No bids were made!");
-                    }
+                    sb.append(" closed. No bids were made!");
                 }
 				notification = sb.toString();
 				bidders = a.getBidders();
