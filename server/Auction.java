@@ -20,7 +20,7 @@ public class Auction implements Serializable{
 	public Auction(String auctioneer, String description, int id) {
 		this.auctioneer = auctioneer;
 		this.description = description;
-		highestBidder = null;
+		highestBidder = "";
 		highestBid = 0.0;
 		licitationHistory = new ArrayList<>();
 		auctionLock = new ReentrantLock();

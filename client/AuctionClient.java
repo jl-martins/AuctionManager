@@ -115,9 +115,10 @@ public class AuctionClient extends Thread {
 			try {
 				printMenu(loginRegisterOptions);
 				option = Integer.valueOf(stdin.readLine());
-				if(option == 1 && login(stdin, toServer, fromServer))
-					r = LOGIN; // indicates a successful login
-				else if(option == 2)
+				if(option == 1){
+					if(login(stdin, toServer, fromServer))
+						r = LOGIN; // indicates a successful login
+				}else if(option == 2)
 					register(stdin, toServer, fromServer);
 				else if(option == 3)
 					r = EXIT;

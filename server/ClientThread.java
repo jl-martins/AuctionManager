@@ -49,8 +49,8 @@ public class ClientThread implements Runnable {
 		switch(args[0]){
 			case "login": 
 				users.lock();
-                login(args[1], args[2]);
-				(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), toClient)).start();
+                		if(login(args[1], args[2]))
+					(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), toClient)).start();
 				users.unlock();
 				break;
 			case "reg": 
@@ -69,15 +69,15 @@ public class ClientThread implements Runnable {
 					double ammount = Double.parseDouble(args[2]);
 					bid(auctionId, ammount);
 				} catch(NumberFormatException e) {
-                    toClient.println("Auction id must be an integer and the bidded ammount must be decimal");
+                    			toClient.println("Auction id must be an integer and the bidded ammount must be decimal");
 				}			
 				break;
 			case "close":
 				try {
 					closeAuction(Integer.parseInt(args[1]));
 				} catch(NumberFormatException e){
-                    toClient.println("Auction id must be an integer");
-                }
+                    			toClient.println("Auction id must be an integer");
+                		}
 				break;
 			case "logout":
 				nf.cancel();
@@ -176,9 +176,8 @@ public class ClientThread implements Runnable {
 	
 		AuctionsMap auctionsAux = auctions.clone();
 
-		if(auctionsAux.size() == auctionsAux.getClosedAuctions()){
+		if(auctionsAux.size() == auctionsAux.getClosedAuctions())
 			toClient.println("There are no open auctions.");
-		}
 
 		for(Auction a: auctionsAux.values()){
 			if(a.isTerminated())
@@ -240,10 +239,10 @@ public class ClientThread implements Runnable {
 		} catch(InvalidBidException e) {
 			toClient.println(e.getMessage());
 			logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid less than the current highest bid.", e);
-        } catch(AlreadyHighestBidderException e) {
-            toClient.println(e.getMessage());
-            logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid while already having the highest bid.", e);
-        } finally {
+       	 	} catch(AlreadyHighestBidderException e) {
+            		toClient.println(e.getMessage());
+           	 	logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid while already having the highest bid.", e);
+        	} finally {
 			a.unlock();
 		}
 	}
