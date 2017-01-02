@@ -167,8 +167,6 @@ public class ClientThread implements Runnable {
 	public void listAuctions() {
 		Client c = null;
 		StringBuilder sb = new StringBuilder();
-		final int LINES = 10;
-		int i = 0;
 
 		users.lock();
 		c = users.get(loggedUser);
@@ -181,30 +179,26 @@ public class ClientThread implements Runnable {
 
 		for(Auction a: auctionsAux.values()){
 			if(a.isTerminated())
-                    		continue;
-                	++i;
+                continue;
+
 			a.lock();
 			int auctionId = a.getAuctionId();
 			sb.append("[").append(auctionId).append("] ");
 			sb.append("Description: ").append(a.getDescription());
 			sb.append("; Highest Bid: ");
 			if(a.getHighestBid() == 0.0)
-       		             sb.append("n/a");
+                sb.append("n/a");
 			else
-       		             sb.append(a.getHighestBid());
+                sb.append(a.getHighestBid());
 			if(c.isAuctioneerOf(auctionId)){
 				sb.append("* ");
-			} else if (a.getHighestBidder().equals(loggedUser)) {
+			} else if(a.getHighestBidder().equals(loggedUser)) {
 				sb.append("+ ");	
 			}
-			sb.append("\n");
 			a.unlock();
-			if(i == LINES || (i == auctionsAux.size() - auctionsAux.getClosedAuctions())){
-				String s = sb.toString();
-				toClient.println(s);
-				sb.delete(0, s.length() - 1);
-				i = 0;
-			}
+            String s = sb.toString();
+            toClient.println(s);
+            sb.delete(0, s.length());
 		}
 	}
 

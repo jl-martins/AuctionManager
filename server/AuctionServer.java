@@ -14,13 +14,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 /**
- * TODO: The logs are all logging to stdout apparently, got to change that
- *       Static variable dont get serialized, got to find a away to save the next auction ID variable.
- *              - We should move the assignemt of id's to AuctionsMap, everytime addAuction is called the id is size+1
- *		  that way we dont have static trouble
- */
-
-/**
  * There are two ways of implementing a second thread that would save the state of the program every hour
  * 1º: Create a thread, have it sleep for an hour then save the state, sleep for an hour, save the state, and so on and so forward
  * 2º: Use Timer and TimerTask 

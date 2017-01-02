@@ -66,6 +66,4 @@ public class Client implements Serializable {
 	public void add(String notification){
 		notifications.add(notification);
 	}
-
-	/* equals e toString */
 }
