@@ -275,9 +275,13 @@ public class ClientThread implements Runnable {
 				StringBuilder sb = new StringBuilder();
 		
 				sb.append("Auction #").append(auctionId);
-				sb.append(" closed with value ").append(a.getHighestBid());
-				sb.append(" from user ").append(a.getHighestBidder());
-
+				if(!a.getHighestBidder().equals("")){	
+					sb.append(" closed with value ").append(a.getHighestBid());
+					sb.append(" from user ").append(a.getHighestBidder());
+				}else{
+					sb.append(" closed. No bids were made!");
+				}
+				
 				notification = sb.toString();
 				bidders = a.getBidders();
 				bidders.add(loggedUser);
