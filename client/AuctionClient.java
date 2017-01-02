@@ -50,7 +50,7 @@ public class AuctionClient extends Thread {
 				}
 				serverMessage = fromServer.readLine();
 				exitFlag = (serverMessage == null);
-				if(!exitFlag)
+				if(!exitFlag && !serverMessage.equals("Logout successful"))
 					System.out.println(serverMessage);
 			} while(!exitFlag);
 		} catch(IOException e) {
