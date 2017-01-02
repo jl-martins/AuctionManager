@@ -21,7 +21,7 @@ public class AuctionClient extends Thread {
 		"Logout: logout", "Exit: exit"
 	};
 	private static final Set<String> commands =
-		new HashSet<>(Arrays.asList(new String[] {"start", "bid", "list", "close", "logout", "--help", "exit"}));
+		new HashSet<>(Arrays.asList(new String[] {"start", "bid", "list", "close", "logout", "help", "exit"}));
 	/* AuctionClient's logger */
 	private static final Logger logger = Logger.getLogger(AuctionClient.class.getName());
 
@@ -112,7 +112,7 @@ public class AuctionClient extends Thread {
 				cmd = message.split(" ");
 				
 				if(!existsCmd(cmd[0])){
-					System.out.println("Incorrect syntax. Use --help for instructions.");
+					System.out.println("Incorrect syntax. Use help for instructions.");
 				} else {
 					logout = cmd[0].equalsIgnoreCase("logout");
 					if(logout || (exitFlag = cmd[0].equalsIgnoreCase("exit")))
@@ -215,7 +215,7 @@ public class AuctionClient extends Thread {
 			case "exit":
 				toServer.println("logout");
 				break;
-			case "--help":
+			case "help":
 				printHelp();
 				break;
 			default:
