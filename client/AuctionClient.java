@@ -3,165 +3,222 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+
+import java.util.Arrays;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
-public class AuctionClient extends Thread{
-
-	private static ReentrantLock validLoginLock = new ReentrantLock();	
-	private static boolean validLogin;
-	private Socket s;
-	private BufferedReader fromServer;
+public class AuctionClient extends Thread {
 	
-	public AuctionClient(Socket s, BufferedReader fromServer){
+	private static final String[] loginRegisterOptions = {"Login", "Register", "Exit"};
+	private static final String[] helpLines = {
+		"Start Auction: start <description>", "List Auctions: list",
+		"Bid: bid <auctionId> <amount>", "Close Auction: close <auctionId>",
+		"Logout: logout", "Exit: exit"
+	};
+	private static final Set<String> commands =
+		new HashSet<>(Arrays.asList(new String[] {"start", "bid", "list", "close", "logout", "--help", "exit"}));
+	/* AuctionClient's logger */
+	private static final Logger logger = Logger.getLogger(AuctionClient.class.getName());
+
+	/* Instance variables used in reader thread */
+	private final Socket s;
+	private final BufferedReader fromServer;
+	private final RunFlag runFlag; // indicates if an AuctionClient thread should be running
+	
+	public AuctionClient(Socket s, BufferedReader fromServer, RunFlag runFlag) {
 		this.s = s;
 		this.fromServer = fromServer;
+		this.runFlag = runFlag;
 	}
 
-	/* This thread reads from socket!! */
-	public void run(){
-		/* do work */
+	/* Run method of the client thread that reads from the socket and writes to stdout. */
+	public void run() {
 		String serverMessage;
-		try{
-			while((serverMessage = fromServer.readLine()) != null){
-				if(serverMessage.equals("xl")){
-					validLoginLock.lock();
-					validLogin = false;
-					validLoginLock.unlock();
-					System.out.println("Invalid Login");
+		boolean exitFlag = false;
+
+		try {
+			do {
+				while(runFlag.getValue() == false) {
+					synchronized(runFlag) {
+						runFlag.wait(); // wait until master thread tells this thread to run
+					}
 				}
-				else
+				serverMessage = fromServer.readLine();
+				exitFlag = (serverMessage == null);
+				if(!exitFlag)
 					System.out.println(serverMessage);
-			}
+			} while(!exitFlag);
+
 			s.shutdownOutput();
-		}catch(IOException e){
+		} catch(IOException e) {
+			// HANDLE EXCEPTION
+		} catch(InterruptedException e) {
+			Thread.currentThread().interrupt();
 		}
 	}
 	
-	public static void main(String[] args) throws IOException, InterruptedException{
-		Socket s = new Socket("localhost", 8080);
+	public static void main(String[] args) throws IOException, InterruptedException {
+		Socket s = null; // avoids "variable s might not have been initialized" error
+		
+		if(args.length == 0) {
+			s = new Socket("localhost", 8080);
+		} else if(args.length == 1) {
+			s = new Socket(args[0], 8080);
+		} else if(args.length == 2) {
+			try {
+				s = new Socket(args[0], Integer.valueOf(args[1]));
+			} catch(IllegalArgumentException e) {
+				System.err.println("Invalid port number");
+				System.exit(1);
+			}
+		} else {
+			System.err.println("Usage: AuctionClient [host [port]]");
+		}
+		work(s);
+	}
+
+
+	private static void work(Socket s) throws IOException {
+		PrintWriter toServer = new PrintWriter(s.getOutputStream(), true);
 		BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
 		BufferedReader fromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
-		PrintWriter toServer = new PrintWriter(s.getOutputStream(), true);
-		AuctionClient readerThread = new AuctionClient(s, fromServer);
-		
-		/* Start Thread that reads from socket */
-		readerThread.start();
-		
+		RunFlag runFlag = new RunFlag(false);
+		AuctionClient readerThread = new AuctionClient(s, fromServer, runFlag);
 		boolean exitFlag = false;
-		do{
-			int option;
-			do{
-				/*maybe move this to a method */
-				validLoginLock.lock();
-				validLogin = true;
-				validLoginLock.unlock();
-				
-				System.out.print(firstMenu());
-				try{
-					option = Integer.parseInt(stdin.readLine());
-					if(option == 2) login(stdin, toServer);
-					else if(option == 1) register(stdin, toServer);
-				}catch(NumberFormatException e){
-					validLoginLock.lock();
-					validLogin = false;
-					validLoginLock.unlock();
-					option = 1;
-					System.out.println("Please choose one of the above options");
-				}
-				
-				Thread.sleep(300);
-			}while(option==1 || !validLogin);
-			
-			/* At this point client is logged in */	
 
+		readerThread.start(); // readerThread starts with runFlag set to false. It won't run until after login	
+		do {
+			exitFlag = !loginAndRegister(stdin, toServer, fromServer);
+
+			if(!exitFlag) {
+				/* At this point client is logged in */	
+				printHelp();
+				runFlag.setValue(true);
+				synchronized(runFlag) {
+					runFlag.notify(); // tell readerThread to run
+				}
+			}
 			String message;
 			String[] cmd;
 			boolean logout = false;
-			while(!logout && ((message = stdin.readLine()) != null)){
-				cmd = message.trim().split(" ");
-				
-				if(! existsCmd(cmd[0])){
-					System.out.println("Incorrect Syntax. Use --help for instructions.");
-					continue;
-				}
 
-				logout = cmd[0].equals("logout");
-				sendMessageToServer(message.trim(), toServer);
+			while(!exitFlag && !logout && ((message = stdin.readLine()) != null)) {
+				message = message.trim();
+				cmd = message.split(" ");
+				
+				if(!existsCmd(cmd[0])){
+					System.out.println("Incorrect syntax. Use --help for instructions.");
+				} else {
+					logout = cmd[0].equalsIgnoreCase("logout");
+					if(logout || (exitFlag = cmd[0].equalsIgnoreCase("exit")))
+						runFlag.setValue(false);
+					
+					sendMessageToServer(message, toServer);
+				}
 			}
-		}while( !exitFlag );
+		} while(!exitFlag);
+
+		System.exit(0);
 	}
 
-	public static void sendMessageToServer(String cmd, PrintWriter fromServer){
+	private static boolean loginAndRegister(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer)
+		throws IOException
+	{
+		int option = -1;
+		boolean exitFlag = false, validLogin = false;
+
+		do {
+			try {
+				printMenu(loginRegisterOptions);
+				option = Integer.valueOf(stdin.readLine());
+				if(option == 1)
+					validLogin = login(stdin, toServer, fromServer);
+				else if(option == 2)
+					register(stdin, toServer);
+				else if(option == 3)
+					exitFlag = true;
+				else
+					System.err.println("Invalid option!");
+			} catch(NumberFormatException e) {
+				System.err.println("Invalid option!");
+			}
+		} while(!validLogin && !exitFlag);
+
+		return exitFlag;
+	}
+
+	private static boolean existsCmd(String cmd) {
+		return commands.contains(cmd.toLowerCase());
+	}
+
+	private static String[] getUsernamePassword(BufferedReader stdin) throws IOException {		
+		String[] credentials = new String[2];
+		
+		System.out.print("Username: ");
+		credentials[0] = stdin.readLine();
+		System.out.print("Password: ");
+		credentials[1] = stdin.readLine();
+		
+		return credentials;
+	}
+
+	private static void register(BufferedReader stdin, PrintWriter toServer){
+		try{
+			String[] credentials = getUsernamePassword(stdin);
+			toServer.println("reg " + credentials[0] + " " + credentials[1]);
+		} catch(IOException e) {
+			// HANDLE EXCEPTION
+		}
+	}
+
+	private static boolean login(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer) {
+		boolean validLogin = false;
+
+		try {
+			String[] credentials = getUsernamePassword(stdin);
+			toServer.println("login " + credentials[0] + " " + credentials[1]);
+			validLogin = !fromServer.readLine().equals("xl"); // "xl" means invalid login
+			if(!validLogin)
+				System.err.println("Invalid login!");
+			else
+				System.out.println(fromServer.readLine());
+		} catch(IOException e){
+			// HANDLE EXCEPTION!
+		}
+		return validLogin;
+	}
+
+	private static void printMenu(String[] options) {
+		for(int i = 1; i <= options.length; ++i)
+			System.out.printf("%d. %s%n", i, options[i-1]);
+	}
+
+	private static void printHelp() {
+		for(String str : helpLines)
+			System.out.println(str);
+	}
+
+	private static void sendMessageToServer(String cmd, PrintWriter toServer){
 		switch(cmd.split(" ")[0]){
 			case "start": 
 			case "list":
 			case "bid":
 			case "close":
-			case "logout": fromServer.println(cmd); break;
-			case "--help": showHelp(); break;
+			case "logout":
+				toServer.println(cmd);
+				break;
+			case "exit":
+				toServer.println("logout");
+				break;
+			case "--help":
+				printHelp();
+				break;
 			default:
-		}
-	}
-
-	public static void showHelp(){
-		StringBuilder str = new StringBuilder();
-		str.append("Start Auction: start <description>\n");
-		str.append("List Auctions: list\n");
-		str.append("Bid: bid <auctionId> <amount>\n");
-		str.append("Close Auction: close <auctionId>\n");
-		str.append("Logout: logout");
-		System.out.println(str.toString());
-	}
-	
-	public static void login(BufferedReader stdin, PrintWriter toServer){
-		try{
-		String[] data = askForUsernamePassword(stdin);
-		toServer.println("login "+data[0]+" "+data[1]);
-		}catch(IOException e){
-		}
-	}
-
-	public static String firstMenu(){
-		StringBuilder str = new StringBuilder();
-		str.append("1 - Register\n");
-		str.append("2 - Login\n");
-		
-		return str.toString();
-	}
-
-	public static String mainMenu(){
-		StringBuilder str = new StringBuilder();
-		str.append("Start Auction\n");
-		str.append("List running auctions\n");
-		str.append("Bid item\n");
-		str.append("Close Auction\n");
-		str.append("Logout and exit\n");
-		
-		return str.toString();
-	}
-
-	public static boolean existsCmd(String cmd){
-		/* Commands need to be stored somewhere */
-		return (cmd.equals("start") || cmd.equals("list") || cmd.equals("bid") 
-		|| cmd.equals("close") || cmd.equals("logout") || cmd.equals("--help"));
-	}
-	
-	public static String[] askForUsernamePassword(BufferedReader stdin) throws IOException{		
-		String[] data = new String[2];
-		System.out.print("Username: ");
-		data[0] = stdin.readLine();
-		System.out.print("Password: ");
-		data[1] = stdin.readLine();
-
-		return data;
-	}
-
-	public static void register(BufferedReader stdin, PrintWriter toServer){
-		try{
-		String[] data = askForUsernamePassword(stdin);
-		toServer.println("reg "+data[0]+" "+data[1]);
-		}catch(IOException e){
 		}
 	}
 }
