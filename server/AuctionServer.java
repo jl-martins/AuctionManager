@@ -48,7 +48,7 @@ public class AuctionServer {
 		} catch(IOException | ClassNotFoundException e) {
 			usersTemp = new UsersMap();
 			auctionsTemp = new AuctionsMap();
-			logger.log(Level.SEVERE, "Error on reading saved data");
+			logger.log(Level.INFO, "Error on reading saved data");
 		}
 
 		users = usersTemp;

@@ -33,9 +33,9 @@ public class ClientThread implements Runnable {
 
 			String m;
 			while(((m = fromClient.readLine()) != null)){
-				String[] cmd = m.split(" ");
-				loggedUser = cmd[0].equals("logout") ? "" : loggedUser;
-				parse(cmd);
+				String[] args = m.split(" ");
+				loggedUser = args[0].equals("logout") ? "" : loggedUser;
+				parse(args);
 			}
 			s.close();
 		} catch(IOException e) {
@@ -44,76 +44,109 @@ public class ClientThread implements Runnable {
 		
 	}
 
-	/* TODO: validate input */
-	public boolean parse(String[] cmd) {
-		boolean error = false;
-        
-		switch(cmd[0]){
+	public void parse(String[] args) {
+        // Note: command syntax is validated by the client
+		switch(args[0]){
 			case "login": 
-				error = (cmd.length != 3); 
-				if(!error && login(cmd[1], cmd[2])) {
-					users.lock();
-					(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), toClient)).start();
-					users.unlock();
-				}
+				users.lock();
+                login(args[1], args[2]);
+				(nf = new NotificationsThread(users.get(loggedUser).getNotifications(), toClient)).start();
+				users.unlock();
 				break;
 			case "reg": 
-				error = (cmd.length != 3);
-				if(!error) {
-					register(cmd[1],cmd[2]);
-				}
+				register(args[1],args[2]);
 				break;
 			case "start":
-				error = (cmd.length < 2);
-				if(!error && !loggedUser.equals(""))
-					startAuction(cmd);
+				if(!loggedUser.equals(""))
+					startAuction(args);
 				break;
 			case "list":
 				listAuctions();	
 				break;
 			case "bid":
-				error = (cmd.length != 3);
-				if(!error) {
-					try{
-						int auctionId = Integer.parseInt(cmd[1]);
-						double ammount = Double.parseDouble(cmd[2]);
-						bid(auctionId, ammount);
-					} catch(NumberFormatException e) {
-                        toClient.println("Auction id must be an integer and the bidded ammount must be decimal");
-					}			
-				}
+				try{
+					int auctionId = Integer.parseInt(args[1]);
+					double ammount = Double.parseDouble(args[2]);
+					bid(auctionId, ammount);
+				} catch(NumberFormatException e) {
+                    toClient.println("Auction id must be an integer and the bidded ammount must be decimal");
+				}			
 				break;
 			case "close":
-				error = (cmd.length != 2);
-                if(!error) {
-					try {
-						closeAuction(Integer.parseInt(cmd[1]));
-					} catch(NumberFormatException e){
-                        toClient.println("Auction id must be an integer");
-                    }
+				try {
+					closeAuction(Integer.parseInt(args[1]));
+				} catch(NumberFormatException e){
+                    toClient.println("Auction id must be an integer");
                 }
 				break;
 			case "logout":
 				nf.cancel();
 				break;
-			default:
-				System.out.println(cmd[0]);
+			default: // command syntax is validated by the client, so this default is never reached
 		}
-		return error;
 	}
-
-	private String getDescription(String[] cmd) {
-		/* cmd[0] is the command "start" auction */
+    
+    public boolean login(String username, String password) {
+        Client c = null;
+        boolean isValid = false;
+        
+        users.lock();
+        try {
+            if(users.containsUser(username))
+                c = users.get(username);
+            else
+                throw new UserNonExistentException("Invalid credentials"); /* login error code */
+        } catch(UserNonExistentException e){
+            toClient.println(e.getMessage());
+            logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
+            isValid = false;
+            return isValid;
+        } finally {
+            users.unlock();
+        }
+        
+        try {
+            isValid = c.checkPassword(password);
+            
+            if(isValid) {
+                this.loggedUser = username;
+                toClient.println("Login successful");
+            }
+        } catch(AuthorizationException e) {
+            toClient.println(e.getMessage());
+            logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
+        }
+        return isValid;
+    }
+    
+    public void register(String username, String password) {
+        users.lock();
+        try {
+            if(!users.containsUser(username)) {
+                users.addUser(new Client(username, password));
+                toClient.println("Registration successful!");
+                logger.log(Level.INFO, "User added with username: " + username);
+                
+            } else {
+                toClient.println("Username already in use!");
+            }
+        } finally {
+            users.unlock();
+        }
+    }
+    
+    private String getDescription(String[] args) {
+		/* args[0] is the command "start" auction */
 		/* Everything in front of that is the description of the item */
 		StringBuilder sb = new StringBuilder();
-		for(int i = 1; i < cmd.length; i++)
-			sb.append(cmd[i]).append(" ");
+		for(int i = 1; i < args.length; i++)
+			sb.append(args[i]).append(" ");
 		
 		return sb.toString().trim();
 	} 
 	
-	public void startAuction(String[] cmd) {
-		String descr = getDescription(cmd);
+	public void startAuction(String[] args) {
+		String descr = getDescription(args);
 		int auctionId = nextAuctionId.getCurrentValueAndIncrement();
 		Auction a = new Auction(loggedUser, descr, auctionId);
 
@@ -266,55 +299,6 @@ public class ClientThread implements Runnable {
 		} finally {
 			a.unlock();
 		}
-	}
-
-	public void register(String username, String password) {
-		users.lock();
-		try {
-			if(!users.containsUser(username)) {
-				users.addUser(new Client(username, password));
-				toClient.println("Registration successful!");
-				logger.log(Level.INFO, "User added with username: " + username);
-				
-			} else {
-				toClient.println("Username already in use!");
-			}
-		} finally {
-			users.unlock();
-		}
-	}
-
-	public boolean login(String username, String password) {
-		Client c = null;
-		boolean isValid = false;
-		
-        users.lock();
-		try {
-			if(users.containsUser(username))
-				c = users.get(username);
-			else	
-				throw new UserNonExistentException("Invalid credentials"); /* login error code */
-		} catch(UserNonExistentException e){
-			toClient.println(e.getMessage()); 
-			logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
-			isValid = false;
-			return isValid;
-		} finally {
-			users.unlock();
-		}
-	
-		try {
-			isValid = c.checkPassword(password);
-
-            if(isValid) {
-				this.loggedUser = username;
-                toClient.println("Login successful");
-            }
-		} catch(AuthorizationException e) {
-			toClient.println(e.getMessage());
-			logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
-		}
-		return isValid;
 	}
 }
 

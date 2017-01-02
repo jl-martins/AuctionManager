@@ -20,8 +20,6 @@ public class AuctionClient extends Thread {
 		"Bid: bid <auctionId> <amount>", "Close Auction: close <auctionId>",
 		"Logout: logout", "Exit: exit"
 	};
-	private static final Set<String> commands =
-		new HashSet<>(Arrays.asList(new String[] {"start", "bid", "list", "close", "logout", "help", "exit"}));
 	/* AuctionClient's logger */
 	private static final Logger logger = Logger.getLogger(AuctionClient.class.getName());
 
@@ -45,9 +43,11 @@ public class AuctionClient extends Thread {
 			do {
 				while(runFlag.getValue() == false) {
 					synchronized(runFlag) {
+						System.out.println("WAITING");
 						runFlag.wait(); // wait until master thread tells this thread to run
 					}
 				}
+				System.out.println("RUNNING");
 				serverMessage = fromServer.readLine();
 				exitFlag = (serverMessage == null);
 				if(!exitFlag)
@@ -56,10 +56,11 @@ public class AuctionClient extends Thread {
 
 			s.shutdownOutput();
 		} catch(IOException e) {
-			// HANDLE EXCEPTION
+			logger.log(Level.SEVERE, e.getMessage(), e);
 		} catch(InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
+		System.out.println("EXITING");
 	}
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
@@ -94,7 +95,7 @@ public class AuctionClient extends Thread {
 		readerThread.start(); // readerThread starts with runFlag set to false. It won't run until after login	
 		do {
 			exitFlag = !loginAndRegister(stdin, toServer, fromServer);
-
+			System.out.println("Exit flag " + exitFlag);
 			if(!exitFlag) {
 				/* At this point client is logged in */	
 				printHelp();
@@ -110,16 +111,12 @@ public class AuctionClient extends Thread {
 			while(!exitFlag && !logout && ((message = stdin.readLine()) != null)) {
 				message = message.trim();
 				cmd = message.split(" ");
-				
-				if(!existsCmd(cmd[0])){
-					System.out.println("Incorrect syntax. Use help for instructions.");
-				} else {
-					logout = cmd[0].equalsIgnoreCase("logout");
-					if(logout || (exitFlag = cmd[0].equalsIgnoreCase("exit")))
-						runFlag.setValue(false);
+			
+				logout = cmd[0].equalsIgnoreCase("logout");
+				if(logout || (exitFlag = cmd[0].equalsIgnoreCase("exit")))
+					runFlag.setValue(false);
 					
-					sendMessageToServer(message, toServer);
-				}
+				sendMessageToServer(message, toServer);
 			}
 		} while(!exitFlag);
 
@@ -152,10 +149,6 @@ public class AuctionClient extends Thread {
 		return validLogin;
 	}
 
-	private static boolean existsCmd(String cmd) {
-		return commands.contains(cmd.toLowerCase());
-	}
-
 	private static String[] getUsernamePassword(BufferedReader stdin) throws IOException {		
 		String[] credentials = new String[2];
 		
@@ -167,29 +160,35 @@ public class AuctionClient extends Thread {
 		return credentials;
 	}
 
-	private static void register(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer){
-		try{
-			String[] credentials = getUsernamePassword(stdin);
-			toServer.println("reg " + credentials[0] + " " + credentials[1]);
-            System.out.println(fromServer.readLine());
-		} catch(IOException e) {
-			// HANDLE EXCEPTION
-		}
-	}
-
-	private static boolean login(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer) {
+	private static boolean login(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer)
+		throws IOException
+	{
+        boolean validLogin = false;
         String serverReply = null;
-        
-		try {
-			String[] credentials = getUsernamePassword(stdin);
-			toServer.println("login " + credentials[0] + " " + credentials[1]);
+        String[] credentials = getUsernamePassword(stdin);
+            
+        if(credentials[0].trim().isEmpty() || credentials[1].trim().isEmpty())
+            System.out.println("Invalid credentials.");
+        else {
+            toServer.println("login " + credentials[0] + " " + credentials[1]);
             serverReply = fromServer.readLine();
             System.out.println(serverReply);
-		} catch(IOException e){
-			// HANDLE EXCEPTION!
-            return false;
-		}
-		return !serverReply.equals("Invalid credentials");
+            validLogin = !serverReply.equals("Invalid credentials");
+        }
+		return validLogin;
+	}
+
+	private static void register(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer)
+		throws IOException
+	{
+		String[] credentials = getUsernamePassword(stdin);
+            
+        if(credentials[0].trim().isEmpty() || credentials[1].trim().isEmpty())
+            System.err.println("Username and password must not be empty.");
+        else {
+            toServer.println("reg " + credentials[0] + " " + credentials[1]);
+            System.out.println(fromServer.readLine());
+        }
 	}
 
 	private static void printMenu(String[] options) {
@@ -202,22 +201,55 @@ public class AuctionClient extends Thread {
 			System.out.println(str);
 	}
 
-	private static void sendMessageToServer(String cmd, PrintWriter toServer){
-		switch(cmd.split(" ")[0]){
-			case "start": 
+	private static void sendMessageToServer(String cmd, PrintWriter toServer) {
+        String[] args = cmd.split(" ");
+        boolean incorrectSyntax = false;
+        // Command syntax is validated here, to spare the server from syntax validations
+        switch(args[0]) {
+			case "start":
+                if(args.length < 2)
+                	incorrectSyntax = true;
+                break;
 			case "list":
+				if(args.length != 1)
+					incorrectSyntax = true;
+				break;
 			case "bid":
+				if(args.length != 3)
+					incorrectSyntax = true;
+				else try {
+					Integer.parseInt(args[1]);
+					Double.parseDouble(args[2]);
+				} catch(NumberFormatException e) {
+					System.err.println("Auction id must be an integer and the bidded ammount must be decimal");
+					incorrectSyntax = true;
+				}
+				break;
 			case "close":
+				if(args.length != 2)
+					incorrectSyntax = true;
+				else try {
+					Integer.parseInt(args[1]);
+				} catch(NumberFormatException e) {
+					System.err.println("Auction id must be an integer");
+					incorrectSyntax = true;
+				}
+				break;
 			case "logout":
-				toServer.println(cmd);
 				break;
 			case "exit":
-				toServer.println("logout");
+				cmd = "logout";
 				break;
 			case "help":
 				printHelp();
 				break;
-			default:
+			default: // invalid command
+                incorrectSyntax = true;
+                break;
 		}
+		if(incorrectSyntax)
+			System.err.println("Incorrect syntax. Use help for instructions.");
+		else
+			toServer.println(cmd);
 	}
 }
