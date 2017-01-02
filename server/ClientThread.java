@@ -290,6 +290,7 @@ public class ClientThread implements Runnable {
 				notification = sb.toString();
 				bidders = a.getBidders();
 				bidders.add(loggedUser);
+                bidders.remove(highestBidder);
 				for(String bidder: bidders) {
 					users.get(bidder).add(notification);
 				}
