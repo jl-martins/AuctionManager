@@ -81,6 +81,7 @@ public class ClientThread implements Runnable {
 				break;
 			case "logout":
 				nf.cancel();
+				toClient.println("Logout successful");
 				break;
 			default: // command syntax is validated by the client, so this default is never reached
 		}
@@ -114,7 +115,7 @@ public class ClientThread implements Runnable {
             }
         } catch(AuthorizationException e) {
             toClient.println(e.getMessage());
-            logger.log(Level.INFO, "Invalid credentials: Username = " + username + " Password = " + password, e);
+            logger.log(Level.INFO, "Invalid credentials: Username = " + username + ", Password = " + password, e);
         }
         return isValid;
     }

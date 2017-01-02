@@ -53,8 +53,6 @@ public class AuctionClient extends Thread {
 				if(!exitFlag)
 					System.out.println(serverMessage);
 			} while(!exitFlag);
-
-			s.shutdownOutput();
 		} catch(IOException e) {
 			logger.log(Level.SEVERE, e.getMessage(), e);
 		} catch(InterruptedException e) {
@@ -113,14 +111,16 @@ public class AuctionClient extends Thread {
 				cmd = message.split(" ");
 			
 				logout = cmd[0].equalsIgnoreCase("logout");
-				if(logout || (exitFlag = cmd[0].equalsIgnoreCase("exit")))
+				if(logout)
 					runFlag.setValue(false);
+				else
+					exitFlag = cmd[0].equalsIgnoreCase("exit");
 					
 				sendMessageToServer(message, toServer);
 			}
 		} while(!exitFlag);
 
-		System.exit(0);
+		s.shutdownOutput();
 	}
 
 	private static boolean loginAndRegister(BufferedReader stdin, PrintWriter toServer, BufferedReader fromServer)
