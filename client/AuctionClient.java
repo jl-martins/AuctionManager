@@ -146,7 +146,6 @@ public class AuctionClient extends Thread {
 		String[] args;
 		int r = CONTINUE;
 		do {
-			System.out.println(PROMPT);
 			message = stdin.readLine();
 			if(message == null) // EOF
 				r = EXIT;

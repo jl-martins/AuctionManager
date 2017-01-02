@@ -111,7 +111,7 @@ public class ClientThread implements Runnable {
             
             if(isValid) {
                 this.loggedUser = username;
-                toClient.println("Login successful");
+                toClient.println("Successful login");
             }
         } catch(AuthorizationException e) {
             toClient.println(e.getMessage());
@@ -186,8 +186,8 @@ public class ClientThread implements Runnable {
 			a.lock();
 			int auctionId = a.getAuctionId();
 			sb.append("[").append(auctionId).append("] ");
-			sb.append(a.getDescription());
-			sb.append(" Highest Bid: ");
+			sb.append("Description: ").append(a.getDescription());
+			sb.append("; Highest Bid: ");
 			if(a.getHighestBid() == 0.0)
        		             sb.append("n/a");
 			else
@@ -228,21 +228,24 @@ public class ClientThread implements Runnable {
 				String highestBidder = a.getHighestBidder();
 				a.bid(loggedUser, amount);
 				if(!highestBidder.equals("")){
-					sb.append("Your bid in the auction with id: ").append(auctionId);
+					sb.append("Your bid in the auction with id ").append(auctionId);
 					sb.append(" was passed by ").append(loggedUser);
 					sb.append("'s bid of ").append(amount);
 					users.get(highestBidder).add(sb.toString());
 				}
 			}
 
-			logger.log(Level.INFO, "[" + loggedUser + "]: bid " + amount + "on " + a.getDescription());
+			logger.log(Level.INFO, "[" + loggedUser + "]: bid " + amount + " on " + a.getDescription());
 		} catch(InvalidBidException e) {
 			toClient.println(e.getMessage());
 			logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid less than the current highest bid.", e);
-       	 	} catch(AlreadyHighestBidderException e) {
-            		toClient.println(e.getMessage());
-           	 	logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid while already having the highest bid.", e);
-        	} finally {
+        } catch(AlreadyHighestBidderException e) {
+            toClient.println(e.getMessage());
+            logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid while already having the highest bid.", e);
+        } catch(AuctionOwnerException e) {
+            toClient.println(e.getMessage());
+            logger.log(Level.INFO, "[" + loggedUser + "]: tried to bid in an auction he/she owns.", e);
+        }finally {
 			a.unlock();
 		}
 	}
@@ -273,25 +276,30 @@ public class ClientThread implements Runnable {
 			Set<String> bidders;
 			if(!a.isTerminated()) {
 				StringBuilder sb = new StringBuilder();
-		
-				sb.append("Auction #").append(auctionId);
-				if(!a.getHighestBidder().equals("")){	
-					sb.append(" closed with value ").append(a.getHighestBid());
-					sb.append(" from user ").append(a.getHighestBidder());
-				}else{
-					sb.append(" closed. No bids were made!");
-				}
-				
+                double highestBid = a.getHighestBid();
+                String highestBidder = a.getHighestBidder();
+                
+                if(loggedUser.equals(highestBidder)) {
+                    sb.append("You won auction #").append(auctionId);
+                    sb.append(" with a bid of ").append(highestBid);
+                } else {
+                    sb.append("Auction #").append(auctionId);
+                    if(!highestBidder.equals("")) {
+                        sb.append(" closed with value ").append(highestBid);
+                        sb.append(" from user ").append(highestBidder);
+                    } else {
+                        sb.append(" closed. No bids were made!");
+                    }
+                }
 				notification = sb.toString();
 				bidders = a.getBidders();
 				bidders.add(loggedUser);
-				for(String bidder: bidders){
+				for(String bidder: bidders) {
 					users.get(bidder).add(notification);
 				}
 				a.terminate();
 				auctions.incClosedAuctions();
-			}	
-			
+			}
 			logger.log(Level.INFO, "[" + loggedUser + "]: " + notification);
 		} finally {
 			a.unlock();

@@ -65,17 +65,21 @@ public class Auction implements Serializable{
 		}
 	}
 
-	public void bid(String bidder, double bid) throws InvalidBidException, AlreadyHighestBidderException {
+	public void bid(String bidder, double bid)
+        throws AlreadyHighestBidderException, AuctionOwnerException, InvalidBidException
+    {
 		lock();
 		
 		bidders.add(bidder);
 		try{
-
+            if(bidder.equals(highestBidder))
+                throw new AlreadyHighestBidderException("You cannot bid, because you already have the highest bid!");
+            
+            if(bidder.equals(auctioneer))
+                throw new AuctionOwnerException("You cannot bid in an auction that you created!");
+            
 			if(bid <= highestBid)
 				throw new InvalidBidException("Your bid should be higher than the current highest bid!");
-
-			if(bidder.equals(highestBidder))
-                throw new AlreadyHighestBidderException("You cannot bid, because you already have the highest bid.");
             
             highestBid = bid;
             highestBidder = bidder;
