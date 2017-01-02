@@ -80,7 +80,7 @@ public class ClientThread implements Runnable {
                 		}
 				break;
 			case "logout":
-				nf.cancel();
+                nf.stop();
 				toClient.println("Logout successful");
 				break;
 			default: // command syntax is validated by the client, so this default is never reached

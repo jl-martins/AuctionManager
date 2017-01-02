@@ -60,4 +60,8 @@ public class Notifications implements Serializable{
 			unlock();
 		}
 	}
+    
+    public boolean isLocked() {
+        return bufferLock.isLocked();
+    }
 }

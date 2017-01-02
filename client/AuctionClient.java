@@ -45,11 +45,9 @@ public class AuctionClient extends Thread {
 			do {
 				while(runFlag.getValue() == false) {
                     synchronized(runFlag) {
-                        System.out.println("-> Reader thread SUSPENDING");
 						runFlag.wait(); // wait until master thread tells this thread to run
 					}
 				}
-                System.out.println("-> Reader thread RUNNING");
 				serverMessage = fromServer.readLine();
 				exitFlag = (serverMessage == null);
 				if(!exitFlag && !serverMessage.equals("Logout successful"))
@@ -60,7 +58,6 @@ public class AuctionClient extends Thread {
 		} catch(InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
-        System.out.println("-> Reader thread EXITING");
 	}
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
@@ -218,7 +215,7 @@ public class AuctionClient extends Thread {
 		for(i = 1; i <= options.length; ++i)
 			System.out.printf("%d. %s%n", i, options[i-1]);
 
-		System.out.println(PROMPT);
+		System.out.print(PROMPT);
 	}
 
 	private static void printHelp() {

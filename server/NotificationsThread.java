@@ -31,15 +31,10 @@ public class NotificationsThread extends Thread {
 				buffer.unlock();
 			}
 		} catch(InterruptedException e) {
-            interrupt();
+            Thread.currentThread().interrupt();
         } finally {
-            buffer.unlock();
+            if(buffer.isLocked())
+                buffer.unlock();
         }
 	}
-
-	public void cancel(){
-		interrupt();
-	}
-
-
 }
