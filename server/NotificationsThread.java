@@ -22,7 +22,7 @@ public class NotificationsThread extends Thread {
 				int size;
 
 				while(!((size = buffer.size()) > 0))
-						available.await();
+                    available.await();
 
 				for(int i = 0; i < size; i++)
 					str.append(buffer.get()).append("\n");
@@ -32,6 +32,8 @@ public class NotificationsThread extends Thread {
 			}
 		} catch(InterruptedException e) {
             interrupt();
+        } finally {
+            buffer.unlock();
         }
 	}
 

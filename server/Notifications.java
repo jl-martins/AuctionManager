@@ -35,11 +35,12 @@ public class Notifications implements Serializable{
 
 	public void add(String notification){
 		lock();
-
-		buffer.add(notification);
-
-		available.signal();
-		unlock();
+        try {
+            buffer.add(notification);
+            available.signal();
+        } finally {
+            unlock();
+        }
 	}
 
 	public int size(){
