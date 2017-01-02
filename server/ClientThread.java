@@ -174,45 +174,38 @@ public class ClientThread implements Runnable {
 		c = users.get(loggedUser);
 		users.unlock();
 	
-		auctions.lock();
-		if(auctions.size() == auctions.getClosedAuctions()){
+		AuctionsMap auctionsAux = auctions.clone();
+
+		if(auctionsAux.size() == auctionsAux.getClosedAuctions()){
 			toClient.println("There are no open auctions.");
 		}
-		try{
-			for(Auction a: auctions.values()){
-				if(a.isTerminated())
-                    continue;
-				
-                ++i;
-				a.lock();
-				int auctionId = a.getAuctionId();
 
-				sb.append("[").append(auctionId).append("] ");
-				sb.append(a.getDescription());
-			
-				sb.append(" Highest Bid: ");
-				if(a.getHighestBid() == 0.0)
-                    sb.append("n/a");
-				else
-                    sb.append(a.getHighestBid());
-
-				if(c.isAuctioneerOf(auctionId)){
-					sb.append("* ");
-				} else if (a.getHighestBidder().equals(loggedUser)) {
-					sb.append("+ ");	
-				}
-
-				sb.append("\n");
-				a.unlock();
-				if(i == LINES || (i == auctions.size() - auctions.getClosedAuctions())){
-					String s = sb.toString();
-					toClient.println(s);
-					sb.delete(0, s.length() - 1);
-					i = 0;
-				}
+		for(Auction a: auctionsAux.values()){
+			if(a.isTerminated())
+                    		continue;
+                	++i;
+			a.lock();
+			int auctionId = a.getAuctionId();
+			sb.append("[").append(auctionId).append("] ");
+			sb.append(a.getDescription());
+			sb.append(" Highest Bid: ");
+			if(a.getHighestBid() == 0.0)
+       		             sb.append("n/a");
+			else
+       		             sb.append(a.getHighestBid());
+			if(c.isAuctioneerOf(auctionId)){
+				sb.append("* ");
+			} else if (a.getHighestBidder().equals(loggedUser)) {
+				sb.append("+ ");	
 			}
-		} finally {
-			auctions.unlock();
+			sb.append("\n");
+			a.unlock();
+			if(i == LINES || (i == auctionsAux.size() - auctionsAux.getClosedAuctions())){
+				String s = sb.toString();
+				toClient.println(s);
+				sb.delete(0, s.length() - 1);
+				i = 0;
+			}
 		}
 	}
 

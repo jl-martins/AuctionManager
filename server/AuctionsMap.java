@@ -21,6 +21,12 @@ public class AuctionsMap implements Serializable {
 		closedAuctions = 0;
 	}
 
+	private AuctionsMap(AuctionsMap m){
+		this.auctions = new HashMap<>(m.auctions);
+		this.closedAuctions = m.closedAuctions;
+		this.auctionsLock = new ReentrantLock();
+	}
+
 	public void lock() {
 		auctionsLock.lock();
 	}
@@ -115,6 +121,13 @@ public class AuctionsMap implements Serializable {
         unlock();
 		oos.flush();
 		oos.close();
+	}
+
+	public AuctionsMap clone(){
+		lock();
+		AuctionsMap m = new AuctionsMap(this);
+		unlock();			
+		return m;
 	}
 
 }
